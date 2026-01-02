@@ -16,7 +16,7 @@ local Settings = {
     Aimbot = false, TeamCheck = true, WallCheck = true,
     FOV = 150, FOV_Visible = true, FOV_Thickness = 1,
     Smoothness = 0.5,
-    Triggerbot = false, TriggerDelay = 0, -- UPDATED
+    Triggerbot = false, -- RESTORED
     -- Vision
     ESP_Enabled = false, ESP_Boxes = false, ESP_Names = false,
     ESP_Health = false, ESP_Tracers = false, ESP_TracerThickness = 1,
@@ -27,7 +27,7 @@ local Settings = {
 }
 
 -- // 3. Build UI
-local Window = Library:new({name = "Meow client", theme = PinkTheme})
+local Window = Library:new({name = "Blossom Pink Hub", theme = PinkTheme})
 
 local MainTab = Window:page({name = "Combat"})
 local VisionTab = Window:page({name = "Vision"})
@@ -41,7 +41,6 @@ AimSection:toggle({name = "Wall Check", default = true, callback = function(v) S
 
 local TrigSection = MainTab:section({name = "Triggerbot", side = "left"})
 TrigSection:toggle({name = "Enable Triggerbot", callback = function(v) Settings.Triggerbot = v end})
-TrigSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end}) -- NEW SLIDER
 
 local TargetSection = MainTab:section({name = "Target & FOV", side = "right"})
 TargetSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
@@ -66,32 +65,60 @@ PhysSection:slider({name = "JumpHeight", min = 50, max = 500, default = 50, call
 
 -- // 4. ENGINES
 
--- Triggerbot with Delay
-local TriggerLocked = false
+-- Triggerbot Logic
 local function checkTrigger()
-    if not Settings.Triggerbot or TriggerLocked then return end
+    if not Settings.Triggerbot then return end
     local mouse = game.Players.LocalPlayer:GetMouse()
     local target = mouse.Target
     if target and target.Parent:FindFirstChild("Humanoid") then
         local targetPlayer = game.Players:GetPlayerFromCharacter(target.Parent)
-        if targetPlayer and target.Parent.Humanoid.Health > 0 then
+        if targetPlayer then
             if Settings.TeamCheck and targetPlayer.Team == game.Players.LocalPlayer.Team then return end
-            
-            TriggerLocked = true
-            task.wait(Settings.TriggerDelay) -- Applies the slider delay
             mouse1click()
-            task.wait(0.1) -- Small cooldown to prevent spam-glitching
-            TriggerLocked = false
         end
     end
 end
 
--- Render Loop for Combat & Physics
+-- Aimbot Visibility Check
+local function isVisible(part)
+    if not Settings.WallCheck then return true end
+    local cam = workspace.CurrentCamera
+    local char = game.Players.LocalPlayer.Character
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {char, cam}
+    local ray = workspace:Raycast(cam.CFrame.Position, (part.Position - cam.CFrame.Position), params)
+    return not ray or ray.Instance:IsDescendantOf(part.Parent)
+end
+
+-- Main Render Loop
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = PinkTheme.AccentColor
+
 game:GetService("RunService").RenderStepped:Connect(function()
-    if not Settings.Running then return end
+    if not Settings.Running then FOVCircle:Remove() return end
     
+    -- Update FOV
+    FOVCircle.Visible = Settings.FOV_Visible; FOVCircle.Radius = Settings.FOV; FOVCircle.Thickness = Settings.FOV_Thickness
+    FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
+    
+    -- Triggerbot Check
     checkTrigger()
-    
-    -- (Previous Aimbot/FOV/Physics logic continues here...)
+
+    -- Aimbot Logic
+    if Settings.Aimbot and game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local t = getTarget() -- Uses the getTarget function from the previous stable version
+        if t then
+            workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame:Lerp(CFrame.new(workspace.CurrentCamera.CFrame.Position, t.Position), Settings.Smoothness)
+        end
+    end
+
+    -- Movement Physics
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
+        char.Humanoid.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
+    end
 end)
 
+-- (ESP AddESP function and initialization from previous version remains here)
