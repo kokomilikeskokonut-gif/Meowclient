@@ -13,15 +13,16 @@ local PinkTheme = {
 local Settings = {
     Running = true,
     -- Combat
-    Aimbot = false, AimStyle = "Smooth", TeamCheck = true, WallCheck = true,
-    Priority = "Distance", FOV = 150, FOV_Visible = true, FOV_Thickness = 1,
-    MaxAimDistance = 1000, Smoothness = 0.5, HitboxSize = 2,
+    Aimbot = false, TeamCheck = true, WallCheck = true,
+    FOV = 150, FOV_Visible = true, FOV_Thickness = 1,
+    Smoothness = 0.5,
     Triggerbot = false, TriggerDelay = 0,
     -- Vision
-    ESP_Enabled = false, ESP_Boxes = false, ESP_Tracers = false, 
-    ESP_TracerThickness = 1, ESP_Names = false, ESP_Health = false, MaxESPDistance = 2000,
+    ESP_Enabled = false, ESP_Tracers = false, ESP_TracerThickness = 1,
     -- Movement
-    Fly = false, FlySpeed = 50, WalkSpeed = 16, JumpHeight = 50, Noclip = false
+    SpeedEnabled = false, WalkSpeed = 16, 
+    JumpEnabled = false, JumpHeight = 50, 
+    Fly = false, FlySpeed = 50, Noclip = false
 }
 
 -- // 3. Build UI
@@ -34,7 +35,6 @@ local MoveTab = Window:page({name = "Movement"})
 -- Combat Sections
 local AimSection = MainTab:section({name = "Aimbot Settings", side = "left"})
 AimSection:toggle({name = "Enable Aimbot", callback = function(v) Settings.Aimbot = v end})
-AimSection:dropdown({name = "Aimbot Style", content = {"Smooth", "Rage"}, default = "Smooth", callback = function(v) Settings.AimStyle = v end})
 AimSection:toggle({name = "Team Check", callback = function(v) Settings.TeamCheck = v end})
 AimSection:toggle({name = "Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
 
@@ -42,7 +42,6 @@ local TargetSection = MainTab:section({name = "Target & FOV", side = "right"})
 TargetSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
 TargetSection:slider({name = "FOV Thickness", min = 1, max = 10, default = 1, callback = function(v) Settings.FOV_Thickness = v end})
 TargetSection:slider({name = "Smoothness", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
-TargetSection:slider({name = "Hitbox Expander", min = 2, max = 20, default = 2, callback = function(v) Settings.HitboxSize = v end})
 
 local TrigSection = MainTab:section({name = "Triggerbot", side = "left"})
 TrigSection:toggle({name = "Enable Triggerbot", callback = function(v) Settings.Triggerbot = v end})
@@ -51,19 +50,18 @@ TrigSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, c
 -- Vision Sections
 local ESPSection = VisionTab:section({name = "Visuals"})
 ESPSection:toggle({name = "Master Switch", callback = function(v) Settings.ESP_Enabled = v end})
-ESPSection:toggle({name = "Box ESP", callback = function(v) Settings.ESP_Boxes = v end})
 ESPSection:toggle({name = "Tracers", callback = function(v) Settings.ESP_Tracers = v end})
 ESPSection:slider({name = "Tracer Thickness", min = 1, max = 10, default = 1, callback = function(v) Settings.ESP_TracerThickness = v end})
-ESPSection:toggle({name = "Name ESP", callback = function(v) Settings.ESP_Names = v end})
-ESPSection:toggle({name = "Health ESP", callback = function(v) Settings.ESP_Health = v end})
 
 -- Movement Sections
-local PhysSection = MoveTab:section({name = "Physics"})
+local PhysSection = MoveTab:section({name = "Physics Toggles", side = "left"})
+PhysSection:toggle({name = "Enable Speed", callback = function(v) Settings.SpeedEnabled = v end})
 PhysSection:slider({name = "WalkSpeed", min = 16, max = 250, default = 16, callback = function(v) Settings.WalkSpeed = v end})
+PhysSection:toggle({name = "Enable Jump", callback = function(v) Settings.JumpEnabled = v end})
 PhysSection:slider({name = "JumpHeight", min = 50, max = 500, default = 50, callback = function(v) Settings.JumpHeight = v end})
-PhysSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
 
-local FlySection = MoveTab:section({name = "Flight"})
+local FlySection = MoveTab:section({name = "Special Movement", side = "right"})
+FlySection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
 FlySection:toggle({name = "Enable Fly", callback = function(v) Settings.Fly = v end})
 FlySection:slider({name = "Fly Speed", min = 10, max = 300, default = 50, callback = function(v) Settings.FlySpeed = v end})
 
@@ -101,39 +99,29 @@ game:GetService("RunService").RenderStepped:Connect(function()
     FOVCircle.Visible = Settings.FOV_Visible; FOVCircle.Radius = Settings.FOV; FOVCircle.Thickness = Settings.FOV_Thickness
     FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
     
-    -- Combat
+    -- Combat (Smooth Only)
     if Settings.Aimbot and game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getTarget()
         if t then
             local goal = CFrame.new(workspace.CurrentCamera.CFrame.Position, t.Position)
-            workspace.CurrentCamera.CFrame = (Settings.AimStyle == "Rage" and goal or workspace.CurrentCamera.CFrame:Lerp(goal, Settings.Smoothness))
+            workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame:Lerp(goal, Settings.Smoothness)
         end
     end
 
-    -- Movement/Noclip
+    -- Movement (Speed & Jump Toggles)
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.WalkSpeed = Settings.WalkSpeed
-        char.Humanoid.JumpHeight = Settings.JumpHeight
+        local hum = char.Humanoid
+        hum.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
+        hum.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
+        
         if Settings.Noclip then
             for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
         end
     end
 end)
 
--- Hitbox Logic
-task.spawn(function()
-    while task.wait(0.5) do
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                p.Character.Head.Size = Vector3.new(Settings.HitboxSize, Settings.HitboxSize, Settings.HitboxSize)
-                p.Character.Head.Transparency = (Settings.HitboxSize > 2 and 0.5 or 0)
-            end
-        end
-    end
-end)
-
--- ESP Initialization (Simplified for speed)
+-- ESP Initialization
 local function AddESP(p)
     local t = Drawing.new("Line"); t.Color = PinkTheme.AccentColor
     game:GetService("RunService").RenderStepped:Connect(function()
