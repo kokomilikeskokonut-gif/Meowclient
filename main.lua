@@ -36,7 +36,7 @@ local Settings = {
 }
 
 -- // 3. Build UI
-local Window = Library:new({name = "Blossom Pink Hub", theme = PinkTheme})
+local Window = Library:new({name = "Meow client", theme = PinkTheme})
 
 local MainTab = Window:page({name = "Combat"})
 local VisionTab = Window:page({name = "Vision"})
@@ -220,3 +220,4 @@ game:GetService("RunService").RenderStepped:Connect(function()
         char.Humanoid.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
     end
 end)
+
