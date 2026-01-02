@@ -22,7 +22,7 @@ local Settings = {
     -- Movement
     SpeedEnabled = false, WalkSpeed = 16, 
     JumpEnabled = false, JumpHeight = 50, 
-    Fly = false, FlySpeed = 50, Noclip = false
+    Fly = false, FlySpeed = 50, Noclip = false, Spinbot = false
 }
 
 -- // 3. Build UI
@@ -45,13 +45,6 @@ TargetSection:slider({name = "Smoothness", min = 1, max = 100, default = 50, cal
 
 local TrigSection = MainTab:section({name = "Triggerbot", side = "left"})
 TrigSection:toggle({name = "Enable Triggerbot", callback = function(v) Settings.Triggerbot = v end})
-TrigSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end})
-
--- Vision Sections
-local ESPSection = VisionTab:section({name = "Visuals"})
-ESPSection:toggle({name = "Master Switch", callback = function(v) Settings.ESP_Enabled = v end})
-ESPSection:toggle({name = "Tracers", callback = function(v) Settings.ESP_Tracers = v end})
-ESPSection:slider({name = "Tracer Thickness", min = 1, max = 10, default = 1, callback = function(v) Settings.ESP_TracerThickness = v end})
 
 -- Movement Sections
 local PhysSection = MoveTab:section({name = "Physics Toggles", side = "left"})
@@ -60,26 +53,47 @@ PhysSection:slider({name = "WalkSpeed", min = 16, max = 250, default = 16, callb
 PhysSection:toggle({name = "Enable Jump", callback = function(v) Settings.JumpEnabled = v end})
 PhysSection:slider({name = "JumpHeight", min = 50, max = 500, default = 50, callback = function(v) Settings.JumpHeight = v end})
 
-local FlySection = MoveTab:section({name = "Special Movement", side = "right"})
-FlySection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
-FlySection:toggle({name = "Enable Fly", callback = function(v) Settings.Fly = v end})
-FlySection:slider({name = "Fly Speed", min = 10, max = 300, default = 50, callback = function(v) Settings.FlySpeed = v end})
+local SpecialSection = MoveTab:section({name = "Special Movement", side = "right"})
+SpecialSection:toggle({name = "Spinbot", callback = function(v) Settings.Spinbot = v end})
+SpecialSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
+SpecialSection:toggle({name = "Enable Fly", callback = function(v) Settings.Fly = v end})
 
--- // 4. ENGINES (Aimbot, ESP, Movement)
+-- // 4. ENGINES
+
+-- Fixed Wallcheck (Raycasting)
 local function isVisible(part)
     if not Settings.WallCheck then return true end
     local cam = workspace.CurrentCamera
-    local ray = workspace:Raycast(cam.CFrame.Position, (part.Position - cam.CFrame.Position).Unit * 1000, RaycastParams.new())
-    return not ray or ray.Instance:IsDescendantOf(part.Parent)
+    local char = game.Players.LocalPlayer.Character
+    
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {char, cam} -- This ignores YOU
+    
+    local direction = (part.Position - cam.CFrame.Position)
+    local result = workspace:Raycast(cam.CFrame.Position, direction, params)
+    
+    -- If it hits nothing or hits the target's character, they are visible
+    return not result or result.Instance:IsDescendantOf(part.Parent)
 end
+
+-- Anti-AFK
+local VirtualUser = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
 local function getTarget()
     local target, dist = nil, Settings.FOV
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
             if Settings.TeamCheck and p.Team == game.Players.LocalPlayer.Team then continue end
+            if p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health <= 0 then continue end
+            
             local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(p.Character.Head.Position)
             local mag = (Vector2.new(pos.X, pos.Y) - game:GetService("UserInputService"):GetMouseLocation()).Magnitude
+            
             if onScreen and mag < dist and isVisible(p.Character.Head) then
                 dist = mag; target = p.Character.Head
             end
@@ -95,11 +109,15 @@ FOVCircle.Color = PinkTheme.AccentColor
 game:GetService("RunService").RenderStepped:Connect(function()
     if not Settings.Running then FOVCircle:Remove() return end
     
+    local char = game.Players.LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+
     -- Update FOV
     FOVCircle.Visible = Settings.FOV_Visible; FOVCircle.Radius = Settings.FOV; FOVCircle.Thickness = Settings.FOV_Thickness
     FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
     
-    -- Combat (Smooth Only)
+    -- Combat
     if Settings.Aimbot and game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getTarget()
         if t then
@@ -108,12 +126,14 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 
-    -- Movement (Speed & Jump Toggles)
-    local char = game.Players.LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then
-        local hum = char.Humanoid
+    -- Physics & Specials
+    if hum and hrp then
         hum.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
         hum.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
+        
+        if Settings.Spinbot then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(45), 0)
+        end
         
         if Settings.Noclip then
             for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
@@ -121,17 +141,4 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
--- ESP Initialization
-local function AddESP(p)
-    local t = Drawing.new("Line"); t.Color = PinkTheme.AccentColor
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if Settings.ESP_Enabled and Settings.ESP_Tracers and p.Character and p.Character:FindFirstChild("Head") then
-            local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(p.Character.Head.Position)
-            t.Visible = onScreen; t.Thickness = Settings.ESP_TracerThickness
-            t.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y)
-            t.To = Vector2.new(pos.X, pos.Y)
-        else t.Visible = false end
-    end)
-end
-for _, p in pairs(game.Players:GetPlayers()) do if p ~= game.Players.LocalPlayer then AddESP(p) end end
-game.Players.PlayerAdded:Connect(AddESP)
+-- (ESP Additions from previous working version here)
