@@ -12,6 +12,10 @@ local PinkTheme = {
 -- // 2. Configuration & State
 local Settings = {
     Running = true,
+    -- Whitelist System
+    Whitelist = {},
+    WhitelistEnabled = true,
+    IgnoreFriends = true,
     -- Combat
     Aimbot = false, TeamCheck = true, WallCheck = true,
     FOV = 150, FOV_Visible = true, FOV_Thickness = 1,
@@ -44,6 +48,22 @@ AimSection:toggle({name = "Enable Aimbot", callback = function(v) Settings.Aimbo
 AimSection:toggle({name = "Team Check", callback = function(v) Settings.TeamCheck = v end})
 AimSection:toggle({name = "Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
 
+-- Whitelist Section
+local WhiteSection = MainTab:section({name = "Whitelist Manager", side = "left"})
+WhiteSection:toggle({name = "Use Whitelist", default = true, callback = function(v) Settings.WhitelistEnabled = v end})
+WhiteSection:toggle({name = "Ignore Friends", default = true, callback = function(v) Settings.IgnoreFriends = v end})
+WhiteSection:textbox({name = "Whitelist Player", placeholder = "Username...", callback = function(val)
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p.Name:lower():sub(1, #val) == val:lower() then
+            if table.find(Settings.Whitelist, p.Name) then
+                for i, n in ipairs(Settings.Whitelist) do if n == p.Name then table.remove(Settings.Whitelist, i) end end
+            else
+                table.insert(Settings.Whitelist, p.Name)
+            end
+        end
+    end
+end})
+
 local TargetSection = MainTab:section({name = "Target & FOV", side = "right"})
 TargetSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
 TargetSection:slider({name = "FOV Thickness", min = 1, max = 10, default = 1, callback = function(v) Settings.FOV_Thickness = v end})
@@ -67,6 +87,14 @@ PhysSection:slider({name = "JumpHeight", min = 50, max = 500, default = 50, call
 
 -- // 4. ENGINES
 
+-- Whitelist Logic
+local function isWhitelisted(player)
+    if not Settings.WhitelistEnabled then return false end
+    if table.find(Settings.Whitelist, player.Name) then return true end
+    if Settings.IgnoreFriends and game.Players.LocalPlayer:IsFriendsWith(player.UserId) then return true end
+    return false
+end
+
 -- Aimbot Target Logic
 local function isVisible(part)
     if not Settings.WallCheck then return true end
@@ -83,8 +111,10 @@ local function getTarget()
     local target, dist = nil, Settings.FOV
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            if isWhitelisted(p) then continue end -- [WHITELIST CHECK]
             if Settings.TeamCheck and p.Team == game.Players.LocalPlayer.Team then continue end
             if p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health <= 0 then continue end
+            
             local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(p.Character.Head.Position)
             local mag = (Vector2.new(pos.X, pos.Y) - game:GetService("UserInputService"):GetMouseLocation()).Magnitude
             if onScreen and mag < dist and isVisible(p.Character.Head) then
@@ -95,7 +125,7 @@ local function getTarget()
     return target
 end
 
--- ESP Engine (Boxes, Names, Tracers)
+-- ESP Engine
 local function AddESP(p)
     local Box = Drawing.new("Square")
     local Name = Drawing.new("Text")
@@ -125,7 +155,11 @@ local function AddESP(p)
             local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
             
             if onScreen and hum.Health > 0 then
-                -- Box ESP
+                -- Color code Whitelisted players in ESP
+                local displayColor = isWhitelisted(p) and Color3.fromRGB(255, 255, 0) or PinkTheme.AccentColor
+                Box.Color = displayColor
+                Tracer.Color = displayColor
+
                 if Settings.ESP_Boxes then
                     local size = 2500 / pos.Z
                     Box.Size = Vector2.new(size, size * 1.5)
@@ -133,21 +167,18 @@ local function AddESP(p)
                     Box.Visible = true
                 else Box.Visible = false end
 
-                -- Name ESP
                 if Settings.ESP_Names then
                     Name.Position = Vector2.new(pos.X, pos.Y - (2500 / pos.Z) / 1.5 - 15)
-                    Name.Text = p.Name
+                    Name.Text = (isWhitelisted(p) and "[WL] " or "") .. p.Name
                     Name.Visible = true
                 else Name.Visible = false end
 
-                -- Health ESP
                 if Settings.ESP_Health then
                     Health.Position = Vector2.new(pos.X, pos.Y + (2500 / pos.Z) / 1.5 + 5)
                     Health.Text = "HP: " .. math.floor(hum.Health)
                     Health.Visible = true
                 else Health.Visible = false end
 
-                -- Tracer ESP
                 if Settings.ESP_Tracers then
                     Tracer.Thickness = Settings.ESP_TracerThickness
                     Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
@@ -167,7 +198,7 @@ end
 for _, p in pairs(game.Players:GetPlayers()) do if p ~= game.Players.LocalPlayer then AddESP(p) end end
 game.Players.PlayerAdded:Connect(AddESP)
 
--- Main Render Loop (Aimbot & FOV)
+-- Main Render Loop
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = PinkTheme.AccentColor
 
