@@ -1,5 +1,14 @@
--- // 1. Load the Library
+-- // 1. Load Library & Theme Overrider
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+
+-- Apply the Deep Charcoal & Pink Theme from your image
+local PinkTheme = {
+    MainColor = Color3.fromRGB(25, 25, 25),      -- Deep Charcoal Background
+    AccentColor = Color3.fromRGB(255, 182, 193), -- Blossom Pink Accents
+    BackgroundColor = Color3.fromRGB(20, 20, 20), 
+    OutlineColor = Color3.fromRGB(40, 40, 40),
+    FontColor = Color3.fromRGB(255, 255, 255)
+}
 
 -- // 2. Configuration & State
 local Settings = {
@@ -25,41 +34,42 @@ local Settings = {
     ESP_Distance = false
 }
 
--- // 3. Build the UI
+-- // 3. Build UI with Two-Column Layout
 local Window = Library:new({
     name = "Blossom Pink Hub",
-    ConfigName = "BlossomConfig"
+    ConfigName = "BlossomConfig",
+    theme = PinkTheme -- Applying the custom theme
 })
 
 local MainTab = Window:page({name = "Combat"})
 local VisionTab = Window:page({name = "Vision"})
 local MiscTab = Window:page({name = "Misc"})
 
--- COLUMN 1: Aimbot Main
-local AimSection = MainTab:section({name = "Aimbot Main"})
+-- Left Column: Aimbot Main
+local AimSection = MainTab:section({name = "Aimbot Settings", side = "left"})
 AimSection:toggle({name = "Enable Aimbot", callback = function(v) Settings.Aimbot = v end})
 AimSection:toggle({name = "Team Check", callback = function(v) Settings.TeamCheck = v end})
 AimSection:toggle({name = "Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
-AimSection:dropdown({
+AimSection:toggle({name = "Show FOV Circle", default = true, callback = function(v) Settings.FOV_Visible = v end})
+
+-- Right Column: Target & Smoothness
+local TargetSection = MainTab:section({name = "Target Settings", side = "right"})
+TargetSection:dropdown({
     name = "Target Priority",
     content = {"Distance", "Health"},
     default = "Distance",
     callback = function(v) Settings.Priority = v end
 })
+TargetSection:slider({name = "Aim Speed", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
+TargetSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
+TargetSection:slider({name = "Max Range", min = 50, max = 5000, default = 1000, callback = function(v) Settings.MaxAimDistance = v end})
 
--- COLUMN 2: FOV & Range (Fixes Overlap)
-local FOVSection = MainTab:section({name = "FOV & Range Settings"})
-FOVSection:toggle({name = "Show FOV Circle", default = true, callback = function(v) Settings.FOV_Visible = v end})
-FOVSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
-FOVSection:slider({name = "Aim Speed", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
-FOVSection:slider({name = "Max Aim Distance", min = 50, max = 5000, default = 1000, callback = function(v) Settings.MaxAimDistance = v end})
-
--- Triggerbot Section
-local TriggerSection = MainTab:section({name = "Triggerbot"})
+-- Triggerbot (Bottom Left)
+local TriggerSection = MainTab:section({name = "Triggerbot", side = "left"})
 TriggerSection:toggle({name = "Enable Triggerbot", callback = function(v) Settings.Triggerbot = v end})
 TriggerSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end})
 
--- Vision Section (ESP)
+-- Vision Tab
 local ESPSection = VisionTab:section({name = "Visuals"})
 ESPSection:toggle({name = "Master Switch", callback = function(v) Settings.ESP_Enabled = v end})
 ESPSection:slider({name = "Max ESP Distance", min = 100, max = 10000, default = 2000, callback = function(v) Settings.MaxESPDistance = v end})
@@ -67,24 +77,13 @@ ESPSection:toggle({name = "Box ESP", callback = function(v) Settings.ESP_Boxes =
 ESPSection:toggle({name = "Tracers", callback = function(v) Settings.ESP_Tracers = v end})
 ESPSection:toggle({name = "Name ESP", callback = function(v) Settings.ESP_Names = v end})
 ESPSection:toggle({name = "Health ESP", callback = function(v) Settings.ESP_Health = v end})
-ESPSection:toggle({name = "Distance ESP", callback = function(v) Settings.ESP_Distance = v end})
 
--- // 4. Helper Functions
-local function isVisible(targetPart)
-    if not Settings.WallCheck then return true end
-    local camera = workspace.CurrentCamera
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    rayParams.FilterDescendantsInstances = {game.Players.LocalPlayer.Character, camera}
-    local ray = workspace:Raycast(camera.CFrame.Position, (targetPart.Position - camera.CFrame.Position).Unit * 1000, rayParams)
-    return (ray and ray.Instance:IsDescendantOf(targetPart.Parent))
-end
-
+-- // 4. Aimbot & ESP Engines
 local function getBestTarget()
     local target, bestVal = nil, math.huge
     local mouse = game:GetService("UserInputService"):GetMouseLocation()
-    local char = game.Players.LocalPlayer.Character
-    if not (char and char:FindFirstChild("HumanoidRootPart")) then return nil end
+    local myChar = game.Players.LocalPlayer.Character
+    if not (myChar and myChar:FindFirstChild("HumanoidRootPart")) then return nil end
 
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") then
@@ -92,13 +91,13 @@ local function getBestTarget()
             if p.Character.Humanoid.Health <= 0 then continue end
             
             local part = p.Character.Head
-            local dist3D = (part.Position - char.HumanoidRootPart.Position).Magnitude
+            local dist3D = (part.Position - myChar.HumanoidRootPart.Position).Magnitude
             if dist3D > Settings.MaxAimDistance then continue end
 
             local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(part.Position)
             local mouseDist = (Vector2.new(screenPos.X, screenPos.Y) - mouse).Magnitude
 
-            if onScreen and mouseDist < Settings.FOV and isVisible(part) then
+            if onScreen and mouseDist < Settings.FOV then
                 if Settings.Priority == "Distance" then
                     if dist3D < bestVal then bestVal = dist3D; target = part end
                 elseif Settings.Priority == "Health" then
@@ -110,66 +109,9 @@ local function getBestTarget()
     return target
 end
 
--- // 5. ESP Engine (FIXED)
-local function CreateESP(plr)
-    local Box = Drawing.new("Square")
-    local Name = Drawing.new("Text")
-    local Tracer = Drawing.new("Line")
-
-    Box.Color = Color3.fromRGB(255, 182, 193)
-    Box.Thickness = 1
-    Tracer.Color = Color3.fromRGB(255, 182, 193)
-    Name.Color = Color3.fromRGB(255, 255, 255)
-    Name.Outline = true
-    Name.Center = true
-
-    local updater
-    updater = game:GetService("RunService").RenderStepped:Connect(function()
-        if Settings.Running and Settings.ESP_Enabled and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local myHrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-            local dist = (hrp.Position - myHrp.Position).Magnitude
-            local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
-
-            if onScreen and dist <= Settings.MaxESPDistance then
-                Box.Visible = Settings.ESP_Boxes
-                Name.Visible = Settings.ESP_Names
-                Tracer.Visible = Settings.ESP_Tracers
-
-                if Settings.ESP_Boxes then
-                    local size = 2500 / pos.Z
-                    Box.Size = Vector2.new(size, size * 1.5)
-                    Box.Position = Vector2.new(pos.X - size / 2, pos.Y - (size * 1.5) / 2)
-                end
-                if Settings.ESP_Names then
-                    Name.Position = Vector2.new(pos.X, pos.Y - 40)
-                    Name.Text = plr.Name .. (Settings.ESP_Distance and " [" .. math.floor(dist) .. "]" or "")
-                end
-                if Settings.ESP_Tracers then
-                    Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-                    Tracer.To = Vector2.new(pos.X, pos.Y)
-                end
-            else
-                Box.Visible = false; Name.Visible = false; Tracer.Visible = false
-            end
-        else
-            Box.Visible = false; Name.Visible = false; Tracer.Visible = false
-            if not plr.Parent or not Settings.Running then
-                Box:Remove(); Name:Remove(); Tracer:Remove(); updater:Disconnect()
-            end
-        end
-    end)
-end
-
--- Initialize ESP for existing and new players
-for _, p in pairs(game.Players:GetPlayers()) do
-    if p ~= game.Players.LocalPlayer then CreateESP(p) end
-end
-game.Players.PlayerAdded:Connect(CreateESP)
-
--- // 6. Main Render Loop
+-- // 5. Rendering Loop
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Color = Color3.fromRGB(255, 182, 193)
+FOVCircle.Color = PinkTheme.AccentColor
 FOVCircle.Thickness = 1
 
 game:GetService("RunService").RenderStepped:Connect(function()
@@ -185,26 +127,13 @@ game:GetService("RunService").RenderStepped:Connect(function()
             workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame:Lerp(CFrame.new(workspace.CurrentCamera.CFrame.Position, t.Position), Settings.Smoothness)
         end
     end
-
-    if Settings.Triggerbot then
-        local mouse = game.Players.LocalPlayer:GetMouse()
-        if mouse.Target and mouse.Target.Parent:FindFirstChild("Humanoid") then
-            local p = game.Players:GetPlayerFromCharacter(mouse.Target.Parent)
-            if p and p ~= game.Players.LocalPlayer then
-                if Settings.TeamCheck and p.Team == game.Players.LocalPlayer.Team then return end
-                task.wait(Settings.TriggerDelay)
-                mouse1click()
-            end
-        end
-    end
 end)
 
--- // 7. Global Inputs
+-- // 6. Cleanup & Toggle
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.LeftControl then
         Settings.Running = false
-        Settings.ESP_Enabled = false
         for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
             if gui:IsA("ScreenGui") and (gui.Name == "main" or gui:FindFirstChild("Main")) then gui:Destroy() end
         end
