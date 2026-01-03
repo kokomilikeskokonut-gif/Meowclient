@@ -11,11 +11,20 @@ local Settings = {
     WallCheck = true,
     Priority = "Distance",
     FOV = 150,
-    FOV_Visible = true,
+    FOV_Visible = false,
     MaxAimDistance = 1000,
     MaxESPDistance = 2000,
     TargetPart = "Head",
     Smoothness = 0.5,
+    SpeedEnabled = false,
+    WalkSpeed = 16,
+    JumpEnabled = false,
+    JumpHeight = 50,
+    InfJump = false,
+    Noclip = false,
+    Bhop = false,
+    Spinbot = false,
+    SpinSpeed = 50,
     -- ESP Settings
     ESP_Enabled = false,
     ESP_Boxes = false,
@@ -198,7 +207,47 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 end)
+-- Inside the RenderStepped loop:
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+        local hum = char.Humanoid
+        local hrp = char.HumanoidRootPart
+        
+        -- Speed & Jump Logic
+        hum.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
+        hum.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
+        
+        -- Bhop
+        if Settings.Bhop and game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+            if hum.FloorMaterial ~= Enum.Material.Air then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
 
+        -- Spinbot
+        if Settings.Spinbot then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+        end
+        
+        -- Noclip
+        if Settings.Noclip then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+    end
+-- Add these right after MiscTab is defined
+local MoveSection = MiscTab:section({name = "Movement", side = "left"})
+MoveSection:toggle({name = "Enable Speed", callback = function(v) Settings.SpeedEnabled = v end})
+MoveSection:slider({name = "WalkSpeed", min = 16, max = 300, default = 16, callback = function(v) Settings.WalkSpeed = v end})
+MoveSection:toggle({name = "Enable Jump", callback = function(v) Settings.JumpEnabled = v end})
+MoveSection:slider({name = "Jump Height", min = 50, max = 500, default = 50, callback = function(v) Settings.JumpHeight = v end})
+
+local AdvanceMove = MiscTab:section({name = "Advanced Physics", side = "right"})
+AdvanceMove:toggle({name = "Infinite Jump", callback = function(v) Settings.InfJump = v end})
+AdvanceMove:toggle({name = "Auto-Bhop", callback = function(v) Settings.Bhop = v end})
+AdvanceMove:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
+AdvanceMove:toggle({name = "Spinbot", callback = function(v) Settings.Spinbot = v end})
 -- // 7. Global Inputs
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
@@ -212,6 +261,12 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
         for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
             if gui:IsA("ScreenGui") and (gui.Name == "main" or gui:FindFirstChild("Main")) then gui.Enabled = not gui.Enabled end
         end
+    end
+end)
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if Settings.InfJump then
+        local hum = game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
 
