@@ -1,0 +1,63 @@
+-- // 1. Setup Second Window
+local ExtraLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+local ExtraWindow = ExtraLibrary:new({name = "Blossom Extras | TP & Fly", theme = PinkTheme}) -- Uses your main theme
+
+local TPPage = ExtraWindow:page({name = "Teleport"})
+local FlyPage = ExtraWindow:page({name = "Flight"})
+
+-- // 2. Flight Logic
+local FlySettings = {Enabled = false, Speed = 50}
+local FlySection = FlyPage:section({name = "Flight Controls"})
+
+FlySection:toggle({name = "Enable Fly", callback = function(v) 
+    FlySettings.Enabled = v 
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.PlatformStand = v -- Prevents falling animations
+    end
+end})
+FlySection:slider({name = "Fly Speed", min = 10, max = 300, default = 50, callback = function(v) FlySettings.Speed = v end})
+
+-- // 3. Teleport Logic (The Player List)
+local TPSection = TPPage:section({name = "Player List"})
+
+local function TeleportTo(plrName)
+    local target = game.Players:FindFirstChild(plrName)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+    end
+end
+
+-- Refreshable Player List
+TPSection:button({name = "Refresh Player List", callback = function()
+    -- This section logic varies by UI library, usually you'd clear and re-add
+    print("Updating player list...")
+end})
+
+-- Add a button for every player currently in the game
+for _, p in pairs(game.Players:GetPlayers()) do
+    if p ~= game.Players.LocalPlayer then
+        TPSection:button({name = "TP to: "..p.Name, callback = function() TeleportTo(p.Name) end})
+    end
+end
+
+-- // 4. Flight Engine (Heartbeat)
+game:GetService("RunService").Heartbeat:Connect(function()
+    if FlySettings.Enabled then
+        local char = game.Players.LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local cam = workspace.CurrentCamera
+            local moveDir = Vector3.new(0,0,0)
+            
+            -- Simple Camera-Relative Flying
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+            
+            hrp.Velocity = moveDir * FlySettings.Speed
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+        end
+    end
+end)
