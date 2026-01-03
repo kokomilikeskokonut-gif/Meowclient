@@ -1,6 +1,6 @@
 -- // 1. Load the Library
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meowclient/refs/heads/main/movement"))()
 -- // 2. Configuration & State
 local Settings = {
     Running = true,
@@ -214,3 +214,4 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
         end
     end
 end)
+
