@@ -31,7 +31,7 @@ local Settings = {
 
 -- // 3. Build the UI
 local Window = Library:new({
-    name = "Blossom Pink Hub",
+    name = "Meow",
     ConfigName = "BlossomConfig"
 })
 
