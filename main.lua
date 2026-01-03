@@ -1,6 +1,5 @@
 -- // 1. Load the Library
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meowclient/refs/heads/main/extras.lua"))()
 -- // 2. Configuration & State
 local Settings = {
     Running = true,
@@ -177,5 +176,6 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
 end)
 
 print("Blossom Hub: Movement & Combat Unified.")
+
 
 
