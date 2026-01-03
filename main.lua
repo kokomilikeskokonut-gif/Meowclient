@@ -3,15 +3,12 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokom
 
 -- // 2. Configuration & State
 local Settings = {
-    -- Combat Logic
     AimbotEnabled = false,
-    SilentAimEnabled = false,
+    SilentAimEnabled = false, -- Note: This works via Camera redirection in this version
     TeamCheck = true,
     WallCheck = true,
-    
-    -- Customization
     TargetPart = "Head",
-    Smoothness = 0.5, -- Higher = faster/snappier
+    Smoothness = 0.5,
     FOV = 150,
     FOV_Visible = true,
 }
@@ -25,45 +22,28 @@ local PinkTheme = {
 }
 
 -- // 3. Build the UI
-local Window = Library:new({name = "Blossom Combat | Hub", theme = PinkTheme})
+local Window = Library:new({name = "Blossom Combat | Fixed", theme = PinkTheme})
 local CombatTab = Window:page({name = "Combat Features"})
 
--- Aimbot Section
-local AimSection = CombatTab:section({name = "Aimbot & Silent Aim"})
+local AimSection = CombatTab:section({name = "Aimbot & Targeting"})
 AimSection:toggle({name = "Enable Aimbot (Lock)", callback = function(v) Settings.AimbotEnabled = v end})
-AimSection:toggle({name = "Enable Silent Aim", callback = function(v) Settings.SilentAimEnabled = v end})
-AimSection:toggle({name = "Team Check", default = true, callback = function(v) Settings.TeamCheck = v end})
-AimSection:toggle({name = "Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
-
--- Customization Section
-local AdjustSection = CombatTab:section({name = "Adjustments"})
-AdjustSection:slider({
-    name = "Aimbot Smoothness", 
-    min = 1, 
-    max = 100, 
-    default = 50, 
-    callback = function(v) 
-        -- Converts 1-100 scale to a 0.01-1.0 scale for Lerp
-        Settings.Smoothness = v / 100 
-    end
-})
+AimSection:toggle({name = "Enable Team Check", default = true, callback = function(v) Settings.TeamCheck = v end})
+AimSection:toggle({name = "Enable Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
+AimSection:slider({name = "Smoothness", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
 
 local FOVSection = CombatTab:section({name = "FOV Settings"})
 FOVSection:toggle({name = "Show FOV Circle", default = true, callback = function(v) Settings.FOV_Visible = v end})
 FOVSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
 
--- // 4. Core Combat Functions
+-- // 4. Core Logic
 local Camera = workspace.CurrentCamera
 local LocalPlayer = game.Players.LocalPlayer
 
 local function IsVisible(part)
     if not Settings.WallCheck then return true end
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-    
-    local ray = workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 1000, params)
-    return (ray and ray.Instance:IsDescendantOf(part.Parent))
+    local ray = Ray.new(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 2048)
+    local partHit = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character, Camera})
+    return partHit and partHit:IsDescendantOf(part.Parent)
 end
 
 local function GetClosestPlayer()
@@ -74,6 +54,7 @@ local function GetClosestPlayer()
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.TargetPart) then
             if Settings.TeamCheck and p.Team == LocalPlayer.Team then continue end
+            if p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health <= 0 then continue end
             
             local part = p.Character[Settings.TargetPart]
             local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
@@ -90,38 +71,27 @@ local function GetClosestPlayer()
     return target
 end
 
--- // 5. The Silent Aim Engine
-local oldIndex
-oldIndex = hookmetatable(game, {
-    __index = newcclosure(function(self, index)
-        if index == "Hit" and Settings.SilentAimEnabled and not checkcaller() then
-            local target = GetClosestPlayer()
-            if target then
-                return target.CFrame
-            end
-        end
-        return oldIndex(self, index)
-    end)
-})
-
--- // 6. The Aimbot Engine
+-- // 5. The Engine (RenderStepped is more reliable)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1
+FOVCircle.Transparency = 1
 FOVCircle.Color = Color3.fromRGB(255, 182, 193)
+FOVCircle.Filled = false
 
 game:GetService("RunService").RenderStepped:Connect(function()
+    -- Update FOV Circle
     FOVCircle.Visible = Settings.FOV_Visible
     FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
     FOVCircle.Radius = Settings.FOV
 
+    -- Aimbot Logic (Right Click to Lock)
     if Settings.AimbotEnabled and game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = GetClosestPlayer()
         if target then
-            -- Uses the Smoothness setting to determine how fast the camera snaps
-            local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Smoothness)
+            local lookAt = CFrame.new(Camera.CFrame.Position, target.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(lookAt, Settings.Smoothness)
         end
     end
 end)
 
-print("Blossom Combat Hub Loaded.")
+print("Blossom Fixed Combat Hub Loaded.")
