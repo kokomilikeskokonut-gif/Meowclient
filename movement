@@ -1,0 +1,86 @@
+-- // 1. Load Library & Original Pink Theme
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+
+local PinkTheme = {
+    MainColor = Color3.fromRGB(25, 25, 25),      
+    AccentColor = Color3.fromRGB(255, 182, 193), 
+    BackgroundColor = Color3.fromRGB(20, 20, 20), 
+    OutlineColor = Color3.fromRGB(40, 40, 40),
+    FontColor = Color3.fromRGB(255, 255, 255)
+}
+
+-- // 2. Configuration & State
+local Settings = {
+    SpeedEnabled = false,
+    WalkSpeed = 16,
+    JumpEnabled = false,
+    JumpHeight = 50,
+    InfJump = false,
+    Noclip = false,
+    Bhop = false,
+    Spinbot = false,
+    SpinSpeed = 50
+}
+
+-- // 3. Build UI
+local Window = Library:new({name = "Blossom Movement | Hub", theme = PinkTheme})
+local MoveTab = Window:page({name = "Movement & Physics"})
+
+-- Physics Section
+local PhysSection = MoveTab:section({name = "Basic Movement", side = "left"})
+PhysSection:toggle({name = "Enable Speed", callback = function(v) Settings.SpeedEnabled = v end})
+PhysSection:slider({name = "WalkSpeed", min = 16, max = 300, default = 16, callback = function(v) Settings.WalkSpeed = v end})
+PhysSection:toggle({name = "Enable Jump", callback = function(v) Settings.JumpEnabled = v end})
+PhysSection:slider({name = "Jump Height", min = 50, max = 500, default = 50, callback = function(v) Settings.JumpHeight = v end})
+PhysSection:toggle({name = "Auto-Bhop", callback = function(v) Settings.Bhop = v end})
+
+-- Utility Section
+local UtilSection = MoveTab:section({name = "Advanced Utilities", side = "right"})
+UtilSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
+UtilSection:toggle({name = "Infinite Jump", callback = function(v) Settings.InfJump = v end})
+UtilSection:toggle({name = "Spinbot", callback = function(v) Settings.Spinbot = v end})
+UtilSection:slider({name = "Spin Speed", min = 1, max = 100, default = 50, callback = function(v) Settings.SpinSpeed = v end})
+
+-- // 4. Movement Logic Engines
+
+-- Infinite Jump & Bhop Logic
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if Settings.InfJump then
+        local hum = game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+
+-- Main Movement & Spin Loop
+game:GetService("RunService").Stepped:Connect(function()
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+        local hum = char.Humanoid
+        local hrp = char.HumanoidRootPart
+        
+        -- Speed & Jump
+        hum.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
+        hum.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
+        
+        -- Auto Bhop
+        if Settings.Bhop and game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+            if hum.FloorMaterial ~= Enum.Material.Air then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+
+        -- Spinbot
+        if Settings.Spinbot then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.SpinSpeed), 0)
+        end
+        
+        -- Noclip
+        if Settings.Noclip then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+    end
+end)
+
+print("Blossom Movement Module Loaded.")
