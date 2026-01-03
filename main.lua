@@ -4,7 +4,9 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokom
 -- // 2. Configuration & State
 local Settings = {
     AimbotEnabled = false,
-    SilentAimEnabled = false, -- Note: This works via Camera redirection in this version
+    SilentAimEnabled = false,
+    TriggerbotEnabled = false,
+    TriggerDelay = 0,
     TeamCheck = true,
     WallCheck = true,
     TargetPart = "Head",
@@ -22,22 +24,31 @@ local PinkTheme = {
 }
 
 -- // 3. Build the UI
-local Window = Library:new({name = "Blossom Combat | Fixed", theme = PinkTheme})
-local CombatTab = Window:page({name = "Combat Features"})
+local Window = Library:new({name = "Blossom Combat | Elite V3", theme = PinkTheme})
+local CombatTab = Window:page({name = "Combat"})
 
-local AimSection = CombatTab:section({name = "Aimbot & Targeting"})
-AimSection:toggle({name = "Enable Aimbot (Lock)", callback = function(v) Settings.AimbotEnabled = v end})
-AimSection:toggle({name = "Enable Team Check", default = true, callback = function(v) Settings.TeamCheck = v end})
-AimSection:toggle({name = "Enable Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
+-- AIMBOT SECTION
+local AimSection = CombatTab:section({name = "Aimbot Settings", side = "left"})
+AimSection:toggle({name = "Enable Aimbot Lock", callback = function(v) Settings.AimbotEnabled = v end})
 AimSection:slider({name = "Smoothness", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
+AimSection:toggle({name = "Show FOV Circle", default = true, callback = function(v) Settings.FOV_Visible = v end})
+AimSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
 
-local FOVSection = CombatTab:section({name = "FOV Settings"})
-FOVSection:toggle({name = "Show FOV Circle", default = true, callback = function(v) Settings.FOV_Visible = v end})
-FOVSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
+-- SILENT AIM & TRIGGER SECTION
+local SilentSection = CombatTab:section({name = "Silent & Trigger", side = "right"})
+SilentSection:toggle({name = "Enable Silent Aim", callback = function(v) Settings.SilentAimEnabled = v end}) -- BUTTON IS BACK
+SilentSection:toggle({name = "Enable Triggerbot", callback = function(v) Settings.TriggerbotEnabled = v end})
+SilentSection:slider({name = "Trigger Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end})
+
+-- CHECKS SECTION
+local CheckSection = CombatTab:section({name = "Target Checks", side = "left"})
+CheckSection:toggle({name = "Team Check", default = true, callback = function(v) Settings.TeamCheck = v end})
+CheckSection:toggle({name = "Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
 
 -- // 4. Core Logic
 local Camera = workspace.CurrentCamera
 local LocalPlayer = game.Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
 local function IsVisible(part)
     if not Settings.WallCheck then return true end
@@ -71,27 +82,51 @@ local function GetClosestPlayer()
     return target
 end
 
--- // 5. The Engine (RenderStepped is more reliable)
+-- // 5. The Silent Aim Engine (Hook)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if method == "FindPartOnRayWithIgnoreList" and Settings.SilentAimEnabled and not checkcaller() then
+        local target = GetClosestPlayer()
+        if target then
+            args[1] = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * 1000)
+            return oldNamecall(self, unpack(args))
+        end
+    end
+    return oldNamecall(self, ...)
+end))
+
+-- // 6. The Aimbot & Trigger Engine
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1
-FOVCircle.Transparency = 1
 FOVCircle.Color = Color3.fromRGB(255, 182, 193)
-FOVCircle.Filled = false
 
 game:GetService("RunService").RenderStepped:Connect(function()
-    -- Update FOV Circle
     FOVCircle.Visible = Settings.FOV_Visible
     FOVCircle.Position = game:GetService("UserInputService"):GetMouseLocation()
     FOVCircle.Radius = Settings.FOV
 
-    -- Aimbot Logic (Right Click to Lock)
+    -- Aimbot (Hold Right Click)
     if Settings.AimbotEnabled and game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = GetClosestPlayer()
         if target then
-            local lookAt = CFrame.new(Camera.CFrame.Position, target.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(lookAt, Settings.Smoothness)
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Settings.Smoothness)
+        end
+    end
+
+    -- Triggerbot
+    if Settings.TriggerbotEnabled then
+        local target = Mouse.Target
+        if target and target.Parent:FindFirstChild("Humanoid") then
+            local targetPlayer = game.Players:GetPlayerFromCharacter(target.Parent)
+            if targetPlayer and targetPlayer ~= LocalPlayer then
+                if Settings.TeamCheck and targetPlayer.Team == LocalPlayer.Team then return end
+                task.wait(Settings.TriggerDelay)
+                mouse1click()
+            end
         end
     end
 end)
 
-print("Blossom Fixed Combat Hub Loaded.")
+print("Blossom Combat V3: UI Fixed & Silent Aim restored.")
