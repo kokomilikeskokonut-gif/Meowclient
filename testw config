@@ -1,0 +1,74 @@
+-- // 1. Load the Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+local HttpService = game:GetService("HttpService")
+
+-- // 2. Configuration & State
+local Settings = {
+    Aimbot = false, TeamCheck = true, WallCheck = true,
+    Priority = "Distance", FOV = 150, TargetPart = "Head", Smoothness = 0.5,
+    Triggerbot = false, TriggerDelay = 0,
+    ESP_Enabled = false, ESP_Boxes = false, ESP_Tracers = false, ESP_Names = false, ESP_Health = false,
+    SpeedEnabled = false, WalkSpeed = 16, JumpEnabled = false, JumpHeight = 50,
+    Noclip = false, Freecam = false, FreecamSpeed = 1
+}
+
+-- // [QoL] Config System Functions
+local function SaveConfig()
+    local json = HttpService:JSONEncode(Settings)
+    if not isfolder("BlossomHub") then makefolder("BlossomHub") end
+    writefile("BlossomHub/config.json", json)
+end
+
+local function LoadConfig()
+    if isfile("BlossomHub/config.json") then
+        local data = HttpService:JSONDecode(readfile("BlossomHub/config.json"))
+        for k, v in pairs(data) do Settings[k] = v end
+    end
+end
+
+-- // 3. Build the UI
+local Window = Library:new({name = "Blossom Pink Hub", ConfigName = "BlossomConfig"})
+local MainTab = Window:page({name = "Combat"})
+local VisionTab = Window:page({name = "Vision"})
+local MiscTab = Window:page({name = "Movement"})
+local ConfigTab = Window:page({name = "Config"}) -- New Tab
+
+-- (Aimbot, Vision, and Movement sections remain the same as your previous working code)
+-- ... [Keeping existing UI sections here] ...
+
+-- Config Section
+local SaveSection = ConfigTab:section({name = "Settings Management"})
+SaveSection:button({name = "Save Current Config", callback = SaveConfig})
+SaveSection:button({name = "Load Saved Config", callback = LoadConfig})
+
+-- // [QoL] Watermark Engine
+local Watermark = Drawing.new("Text")
+Watermark.Color = Color3.fromRGB(255, 182, 193)
+Watermark.Size = 18
+Watermark.Outline = true
+Watermark.Position = Vector2.new(20, 20)
+Watermark.Visible = true
+
+local function UpdateWatermark()
+    local fps = math.floor(1 / game:GetService("RunService").RenderStepped:Wait())
+    local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+    Watermark.Text = string.format("Blossom Pink Hub | FPS: %d | Ping: %dms", fps, ping)
+end
+
+-- // 4. Keybind Handling (V for Freecam)
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.V then
+        Settings.Freecam = not Settings.Freecam
+    end
+end)
+
+-- // 5. Main Loop
+game:GetService("RunService").RenderStepped:Connect(function()
+    UpdateWatermark() -- Keep Watermark fresh
+    
+    -- (Existing Engines: Aimbot, Triggerbot, Movement, Freecam)
+    -- Ensure your code includes the RenderStepped logic from the previous version here
+end)
+
+-- // 6. ESP System (CreateESP logic remains the same)
