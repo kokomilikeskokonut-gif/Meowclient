@@ -2,30 +2,25 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- // Configuration
-local PLANT_AND_DETONATE_SPEED = 0.1 -- How fast it clicks to plant and blow up
-
 local TargetPlayer = nil
 local PlayerList = {}
 local CurrentIndex = 1
 
--- // UI (Selector)
+-- // UI (Basic Selector)
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 200, 0, 130)
 Main.Position = UDim2.new(0, 50, 0.5, -65)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Main.Active = true
 Main.Draggable = true
-
-local Corner = Instance.new("UICorner", Main)
+Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "C4 KAMIKAZE"
-Title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+Title.Text = "FIXED C4 RUN"
+Title.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
 Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.GothamBold
 
 local NameDisplay = Instance.new("TextLabel", Main)
 NameDisplay.Size = UDim2.new(1, 0, 0, 40)
@@ -33,7 +28,6 @@ NameDisplay.Position = UDim2.new(0, 0, 0.3, 0)
 NameDisplay.BackgroundTransparency = 1
 NameDisplay.TextColor3 = Color3.new(1,1,1)
 NameDisplay.Text = "Select Target"
-NameDisplay.Font = Enum.Font.Gotham
 
 local NextBtn = Instance.new("TextButton", Main)
 NextBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -45,15 +39,7 @@ PrevBtn.Size = UDim2.new(0, 30, 0, 30)
 PrevBtn.Position = UDim2.new(0.05, 0, 0.35, 0)
 PrevBtn.Text = "<"
 
-local Info = Instance.new("TextLabel", Main)
-Info.Size = UDim2.new(1, 0, 0, 30)
-Info.Position = UDim2.new(0, 0, 0.75, 0)
-Info.BackgroundTransparency = 1
-Info.Text = "[U] TP | [K] KAMIKAZE"
-Info.TextColor3 = Color3.fromRGB(200, 200, 200)
-Info.TextSize = 12
-
--- // Logic Functions
+-- // Update Logic
 local function UpdateUI()
     PlayerList = {}
     for _, v in pairs(Players:GetPlayers()) do
@@ -71,45 +57,40 @@ NextBtn.MouseButton1Click:Connect(function() CurrentIndex += 1 UpdateUI() end)
 PrevBtn.MouseButton1Click:Connect(function() CurrentIndex -= 1 UpdateUI() end)
 UpdateUI()
 
--- // THE EXECUTIONER
+-- // THE KILLER LOGIC
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     
-    -- [U] SIMPLE TP
-    if input.KeyCode == Enum.KeyCode.U then
-        if TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            hrp.CFrame = TargetPlayer.Character.HumanoidRootPart.CFrame
-        end
-    end
-
-    -- [K] KAMIKAZE (TP -> Plant -> Explode Immediately)
     if input.KeyCode == Enum.KeyCode.K then
         local c4 = LocalPlayer.Backpack:FindFirstChild("C4") or char:FindFirstChild("C4")
         
         if not c4 then
-            warn("C4 not found in inventory!")
+            print("No C4 found!")
             return
         end
 
         if TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            -- 1. TP directly inside them
-            hrp.CFrame = TargetPlayer.Character.HumanoidRootPart.CFrame
+            -- 1. TP Slightly BEHIND them (Avoids 'Inside Body' death)
+            hrp.CFrame = TargetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2.5)
             
-            -- 2. Equip C4
-            c4.Parent = char 
-            task.wait(0.05)
+            -- 2. Equip and Wait for Weld
+            c4.Parent = char
+            task.wait(0.2) -- Necessary for the game to realize you are holding it
             
-            -- 3. Plant (First Click)
+            -- 3. Plant (First click)
             c4:Activate()
+            print("Planted...")
             
-            -- 4. Detonate (Second Click)
-            task.wait(PLANT_AND_DETONATE_SPEED)
-            c4:Activate()
-            
-            print("Kamikaze executed on: " .. TargetPlayer.Name)
+            -- 4. Detonate (Loop until it works or you die)
+            for i = 1, 5 do
+                task.wait(0.1)
+                if c4 and c4.Parent == char then
+                    c4:Activate()
+                end
+            end
         end
     end
 end)
