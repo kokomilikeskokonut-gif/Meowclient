@@ -21,8 +21,6 @@ local Settings = {
     -- Movement & Misc
     SpeedEnabled = false,
     WalkSpeed = 16,
-    JumpEnabled = false,
-    JumpHeight = 50,
     Noclip = false,
     Freecam = false,
     FreecamSpeed = 1
@@ -68,8 +66,6 @@ ESPSection:toggle({name = "Health ESP", callback = function(v) Settings.ESP_Heal
 local PhysSection = MiscTab:section({name = "Physics"})
 PhysSection:toggle({name = "Enable Speed", callback = function(v) Settings.SpeedEnabled = v end})
 PhysSection:slider({name = "WalkSpeed", min = 16, max = 250, default = 16, callback = function(v) Settings.WalkSpeed = v end})
-PhysSection:toggle({name = "Enable Jump", callback = function(v) Settings.JumpEnabled = v end})
-PhysSection:slider({name = "JumpHeight", min = 50, max = 500, default = 50, callback = function(v) Settings.JumpHeight = v end})
 PhysSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
 
 local FreecamSection = MiscTab:section({name = "Freecam"})
@@ -172,7 +168,6 @@ game:GetService("RunService").RenderStepped:Connect(function()
     -- Movement
     if char and char:FindFirstChild("Humanoid") then
         char.Humanoid.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
-        char.Humanoid.JumpHeight = Settings.JumpEnabled and Settings.JumpHeight or 50
         if Settings.Noclip then
             for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
         end
