@@ -23,7 +23,10 @@ local Settings = {
     WalkSpeed = 16,
     Noclip = false,
     Freecam = false,
-    FreecamSpeed = 1
+    FreecamSpeed = 1,
+    -- Spectate Settings
+    SpectateEnabled = false,
+    SpectateTarget = nil
 }
 
 -- // 3. Build the UI
@@ -72,6 +75,32 @@ local FreecamSection = MiscTab:section({name = "Freecam"})
 local FreecamToggle = FreecamSection:toggle({name = "Enable Freecam (V)", callback = function(v) Settings.Freecam = v end})
 FreecamSection:slider({name = "Freecam Speed", min = 1, max = 10, default = 1, callback = function(v) Settings.FreecamSpeed = v end})
 
+-- Spectate Section
+local SpecSection = MiscTab:section({name = "Spectate"})
+local SpecToggle = SpecSection:toggle({name = "Enable Spectate (H)", callback = function(v) 
+    Settings.SpectateEnabled = v 
+    if not v then workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") end
+end})
+
+local SpecDropdown = SpecSection:dropdown({
+    name = "Select Player",
+    content = {},
+    callback = function(v)
+        Settings.SpectateTarget = game.Players:FindFirstChild(v)
+    end
+})
+
+-- Update Player List for Spectate
+task.spawn(function()
+    while task.wait(3) do
+        local plrs = {}
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= game.Players.LocalPlayer then table.insert(plrs, p.Name) end
+        end
+        SpecDropdown:refresh(plrs)
+    end
+end)
+
 -- Functional TP Function
 local function TeleportToCamera()
     local char = game.Players.LocalPlayer.Character
@@ -86,27 +115,28 @@ FreecamSection:button({name = "Teleport to Camera (X)", callback = TeleportToCam
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
     
-    -- Freecam Toggle (V)
     if input.KeyCode == Enum.KeyCode.V then
         Settings.Freecam = not Settings.Freecam
         FreecamToggle:set(Settings.Freecam)
     end
 
-    -- Teleport to Camera (X)
     if input.KeyCode == Enum.KeyCode.X then
         TeleportToCamera()
     end
 
-    -- Triggerbot Toggle (T)
     if input.KeyCode == Enum.KeyCode.T then
         Settings.Triggerbot = not Settings.Triggerbot
         TrigToggle:set(Settings.Triggerbot)
     end
 
-    -- Speed Toggle (G)
     if input.KeyCode == Enum.KeyCode.G then
         Settings.SpeedEnabled = not Settings.SpeedEnabled
         SpeedToggle:set(Settings.SpeedEnabled)
+    end
+
+    if input.KeyCode == Enum.KeyCode.H then
+        Settings.SpectateEnabled = not Settings.SpectateEnabled
+        SpecToggle:set(Settings.SpectateEnabled)
     end
 end)
 
@@ -155,11 +185,7 @@ FOVCircle.Thickness = 1
 FOVCircle.Visible = true
 
 local TriggerLocked = false
-
--- Freecam State Variables
-local FreecamRotX = 0
-local FreecamRotY = 0
-local LastFreecamState = false
+local FreecamRotX, FreecamRotY, LastFreecamState = 0, 0, false
 
 game:GetService("RunService").RenderStepped:Connect(function()
     local cam = workspace.CurrentCamera
@@ -201,48 +227,41 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 
-    -- Freecam Engine (Updated with Mouse Look)
+    -- Freecam Engine
     if Settings.Freecam then
-        -- Initialize Rotation on toggle
         if not LastFreecamState then
             local rx, ry, _ = cam.CFrame:ToOrientation()
-            FreecamRotX = rx
-            FreecamRotY = ry
-            LastFreecamState = true
+            FreecamRotX, FreecamRotY, LastFreecamState = rx, ry, true
         end
-        
-        -- Lock mouse to center to allow infinite rotation
         UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
         cam.CameraType = Enum.CameraType.Scriptable
-        
-        -- Calculate Rotation
         local delta = UIS:GetMouseDelta()
-        local sensitivity = 0.005 -- Adjust this if it's too fast/slow
-        FreecamRotY = FreecamRotY - (delta.X * sensitivity)
-        FreecamRotX = math.clamp(FreecamRotX - (delta.Y * sensitivity), -1.5, 1.5) -- Clamp up/down
-        
+        FreecamRotY = FreecamRotY - (delta.X * 0.005)
+        FreecamRotX = math.clamp(FreecamRotX - (delta.Y * 0.005), -1.5, 1.5)
         local newRotCFrame = CFrame.fromOrientation(FreecamRotX, FreecamRotY, 0)
-        
-        -- Calculate Movement
         local moveDir = Vector3.new(0,0,0)
-        -- We use the NEW rotation to determine direction so you fly where you look
-        local lookLook = newRotCFrame.LookVector
-        local lookRight = newRotCFrame.RightVector
-        
-        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + lookLook end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - lookLook end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + lookRight end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - lookRight end
-        if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0,1,0) end -- Fly Up
-        if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0,1,0) end -- Fly Down
-        
-        -- Apply
+        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + newRotCFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - newRotCFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + newRotCFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - newRotCFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0,1,0) end
         cam.CFrame = CFrame.new(cam.CFrame.Position + (moveDir * Settings.FreecamSpeed)) * newRotCFrame
     else
         LastFreecamState = false
         if cam.CameraType == Enum.CameraType.Scriptable then 
             cam.CameraType = Enum.CameraType.Custom 
-            UIS.MouseBehavior = Enum.MouseBehavior.Default -- Unlock mouse
+            UIS.MouseBehavior = Enum.MouseBehavior.Default
+        end
+        
+        -- Spectate Logic (Only runs if Freecam is OFF)
+        if Settings.SpectateEnabled and Settings.SpectateTarget and Settings.SpectateTarget.Character then
+            local targetHum = Settings.SpectateTarget.Character:FindFirstChild("Humanoid")
+            if targetHum then cam.CameraSubject = targetHum end
+        else
+            if char and char:FindFirstChild("Humanoid") and cam.CameraSubject ~= char.Humanoid then
+                cam.CameraSubject = char.Humanoid
+            end
         end
     end
 end)
@@ -270,7 +289,7 @@ local function CreateESP(plr)
                 Tracer.Visible = Settings.ESP_Tracers
                 Name.Visible = Settings.ESP_Names
                 if Settings.ESP_Boxes then
-                    local size = 2500 / pos.Z -- Adjusted size scaling
+                    local size = 2500 / pos.Z
                     Box.Size = Vector2.new(size, size * 1.4)
                     Box.Position = Vector2.new(pos.X - size / 2, pos.Y - (size * 1.4) / 2)
                 end
