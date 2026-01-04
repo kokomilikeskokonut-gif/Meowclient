@@ -1,0 +1,64 @@
+-- // 1. Load the Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+
+-- // 2. Configuration & State
+local Settings = {
+    DodgeEnabled = false,
+    DodgeMode = "Spin",
+    DodgeSpeed = 50
+}
+
+-- // 3. Build the UI
+local Window = Library:new({
+    name = "Meow - Bullet Dodge",
+    ConfigName = "DodgeConfig"
+})
+
+local MainTab = Window:page({name = "Main"})
+
+local DodgeSection = MainTab:section({name = "Dodge Settings"})
+
+DodgeSection:toggle({
+    name = "Enable Bullet Dodge",
+    callback = function(v)
+        Settings.DodgeEnabled = v
+    end
+})
+
+DodgeSection:dropdown({
+    name = "Dodge Mode",
+    content = {"Spin", "Jitter"},
+    default = "Spin",
+    callback = function(v)
+        Settings.DodgeMode = v
+    end
+})
+
+DodgeSection:slider({
+    name = "Dodge Intensity",
+    min = 10,
+    max = 500,
+    default = 50,
+    callback = function(v)
+        Settings.DodgeSpeed = v
+    end
+})
+
+-- // 4. Dodge Engine
+game:GetService("RunService").RenderStepped:Connect(function()
+    local lp = game.Players.LocalPlayer
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if Settings.DodgeEnabled and hrp then
+        if Settings.DodgeMode == "Spin" then
+            -- Rapidly rotates the RootPart to make headshots harder for others
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.DodgeSpeed), 0)
+            
+        elseif Settings.DodgeMode == "Jitter" then
+            -- Snaps your character back and forth to break prediction
+            local offset = (math.random(-1, 1) * Settings.DodgeSpeed) / 50
+            hrp.CFrame = hrp.CFrame * CFrame.new(offset, 0, 0)
+        end
+    end
+end)
