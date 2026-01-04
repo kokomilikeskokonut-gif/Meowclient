@@ -28,8 +28,8 @@ local Settings = {
 
 -- // 3. Build the UI
 local Window = Library:new({
-    name = "Blossom Pink Hub",
-    ConfigName = "BlossomConfig"
+    name = "Meow",
+    ConfigName = "Meow"
 })
 
 local MainTab = Window:page({name = "Combat"})
