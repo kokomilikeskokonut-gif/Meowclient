@@ -3,9 +3,8 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokom
 
 -- // 2. Configuration & State
 local Settings = {
-    DodgeEnabled = false,
-    DodgeMode = "Spin",
-    DodgeSpeed = 50
+    DodgeMode = "None", -- "None", "Spin", or "Jitter"
+    DodgeSpeed = 100
 }
 
 -- // 3. Build the UI
@@ -16,49 +15,61 @@ local Window = Library:new({
 
 local MainTab = Window:page({name = "Main"})
 
-local DodgeSection = MainTab:section({name = "Dodge Settings"})
+-- Dodge Selection Section
+local ModeSection = MainTab:section({name = "Select Dodge Mode"})
 
-DodgeSection:toggle({
-    name = "Enable Bullet Dodge",
-    callback = function(v)
-        Settings.DodgeEnabled = v
+ModeSection:button({
+    name = "OFF / RESET",
+    callback = function()
+        Settings.DodgeMode = "None"
+        print("Dodge Disabled")
     end
 })
 
-DodgeSection:dropdown({
-    name = "Dodge Mode",
-    content = {"Spin", "Jitter"},
-    default = "Spin",
-    callback = function(v)
-        Settings.DodgeMode = v
+ModeSection:button({
+    name = "ACTIVATE SPIN DODGE",
+    callback = function()
+        Settings.DodgeMode = "Spin"
+        print("Mode: Spinning")
     end
 })
 
-DodgeSection:slider({
-    name = "Dodge Intensity",
+ModeSection:button({
+    name = "ACTIVATE JITTER DODGE",
+    callback = function()
+        Settings.DodgeMode = "Jitter"
+        print("Mode: Jittering")
+    end
+})
+
+-- Settings Section
+local SettingsSection = MainTab:section({name = "Dodge Intensity"})
+
+SettingsSection:slider({
+    name = "Speed / Force",
     min = 10,
     max = 500,
-    default = 50,
+    default = 100,
     callback = function(v)
         Settings.DodgeSpeed = v
     end
 })
 
--- // 4. Dodge Engine
+-- // 4. Dodge Engine (RunService)
 game:GetService("RunService").RenderStepped:Connect(function()
     local lp = game.Players.LocalPlayer
     local char = lp.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-    if Settings.DodgeEnabled and hrp then
-        if Settings.DodgeMode == "Spin" then
-            -- Rapidly rotates the RootPart to make headshots harder for others
-            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.DodgeSpeed), 0)
-            
-        elseif Settings.DodgeMode == "Jitter" then
-            -- Snaps your character back and forth to break prediction
-            local offset = (math.random(-1, 1) * Settings.DodgeSpeed) / 50
-            hrp.CFrame = hrp.CFrame * CFrame.new(offset, 0, 0)
-        end
+    if not hrp then return end
+
+    if Settings.DodgeMode == "Spin" then
+        -- Rapid rotation to desync head hitboxes
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.DodgeSpeed), 0)
+        
+    elseif Settings.DodgeMode == "Jitter" then
+        -- Rapid side-to-side snapping to break projectile prediction
+        local offset = (math.random(-1, 1) * Settings.DodgeSpeed) / 50
+        hrp.CFrame = hrp.CFrame * CFrame.new(offset, 0, 0)
     end
 end)
