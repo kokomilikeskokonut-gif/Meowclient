@@ -5,31 +5,31 @@ local LocalPlayer = Players.LocalPlayer
 
 -- // Configuration
 local Settings = {
-    OrbitActive = false,
-    Radius = 6,
-    Speed = 12,
-    Height = 1,
-    TargetPart = "HumanoidRootPart" -- Lock onto center of mass
+    Active = false,
+    Radius = 7,     -- Distance from player
+    Height = 1.5,   -- Vertical offset
+    TP_Speed = 0.05 -- How fast you change positions (lower = faster flickering)
 }
 
 local TargetPlayer = nil
 local PlayerList = {}
 local CurrentIndex = 1
+local LockedTool = nil
 
--- // UI (Updated Design)
+-- // UI Setup
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 200, 0, 150)
 Main.Position = UDim2.new(0, 50, 0.5, -75)
-Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "ORBIT LOCK-ON"
-Title.BackgroundColor3 = Color3.fromRGB(120, 0, 255)
+Title.Text = "TP-ORBIT (Flicker)"
+Title.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
 Title.TextColor3 = Color3.new(1,1,1)
 Title.Font = Enum.Font.GothamBold
 
@@ -57,10 +57,13 @@ Status.BackgroundTransparency = 1
 Status.Text = "STATUS: IDLE [K]"
 Status.TextColor3 = Color3.fromRGB(200, 200, 200)
 
--- // Helper Functions
-local function GetSlot1()
-    local tool = LocalPlayer.Backpack:GetChildren()[1] or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool"))
-    return tool
+-- // Functions
+local function GetFirstWeapon()
+    local items = LocalPlayer.Backpack:GetChildren()
+    for _, item in pairs(items) do
+        if item:IsA("Tool") then return item end
+    end
+    return nil
 end
 
 local function UpdateUI()
@@ -80,49 +83,54 @@ NextBtn.MouseButton1Click:Connect(function() CurrentIndex += 1 UpdateUI() end)
 PrevBtn.MouseButton1Click:Connect(function() CurrentIndex -= 1 UpdateUI() end)
 UpdateUI()
 
--- // MAIN LOOP
-local Angle = 0
-RunService.RenderStepped:Connect(function(dt)
+-- // TP LOOP
+local lastTP = 0
+RunService.Heartbeat:Connect(function()
+    if not Settings.Active or not TargetPlayer or not TargetPlayer.Character then return end
+    
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local targetHrp = TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
     local camera = workspace.CurrentCamera
 
-    if Settings.OrbitActive and TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild(Settings.TargetPart) then
-        local targetHrp = TargetPlayer.Character[Settings.TargetPart]
-        
-        if hrp then
-            -- 1. Orbit Position Calculation
-            Angle = Angle + (Settings.Speed * dt)
-            local offset = Vector3.new(math.cos(Angle) * Settings.Radius, Settings.Height, math.sin(Angle) * Settings.Radius)
-            local newPos = targetHrp.Position + offset
+    if hrp and targetHrp then
+        -- 1. Flicker Teleport Logic
+        if tick() - lastTP >= Settings.TP_Speed then
+            lastTP = tick()
             
-            -- 2. Move Character and Face Target
-            hrp.CFrame = CFrame.new(newPos, targetHrp.Position)
+            -- Randomize angle for the TP
+            local randomAngle = math.rad(math.random(0, 360))
+            local offset = Vector3.new(
+                math.cos(randomAngle) * Settings.Radius, 
+                Settings.Height, 
+                math.sin(randomAngle) * Settings.Radius
+            )
             
-            -- 3. Camera Lock-On (Smoothly follows target)
+            -- Teleport and Look at target
+            hrp.CFrame = CFrame.new(targetHrp.Position + offset, targetHrp.Position)
             camera.CFrame = CFrame.new(camera.CFrame.Position, targetHrp.Position)
-            
-            -- 4. Triggerbot / Auto-Fire (Uses Slot 1)
-            local weapon = GetSlot1()
-            if weapon then
-                if weapon.Parent ~= char then weapon.Parent = char end
-                weapon:Activate()
-            end
+        end
+        
+        -- 2. Slot 1 Auto-Attack
+        if LockedTool then
+            if LockedTool.Parent ~= char then LockedTool.Parent = char end
+            LockedTool:Activate()
         end
     end
 end)
 
--- // Toggle and Keybinds
+-- // Toggle
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
-    
     if input.KeyCode == Enum.KeyCode.K then
-        Settings.OrbitActive = not Settings.OrbitActive
+        Settings.Active = not Settings.Active
         
-        if Settings.OrbitActive then
-            Status.Text = "STATUS: ACTIVE"
+        if Settings.Active then
+            LockedTool = GetFirstWeapon()
+            Status.Text = "ACTIVE: " .. (LockedTool and LockedTool.Name or "No Tool")
             Status.TextColor3 = Color3.fromRGB(0, 255, 0)
-            -- Disable collisions so you don't get stuck in the floor or walls
+            
+            -- Noclip
             if LocalPlayer.Character then
                 for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = false end
@@ -131,7 +139,7 @@ UIS.InputBegan:Connect(function(input, gpe)
         else
             Status.Text = "STATUS: IDLE"
             Status.TextColor3 = Color3.fromRGB(200, 200, 200)
-            -- Re-enable collisions
+            LockedTool = nil
             if LocalPlayer.Character then
                 for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = true end
