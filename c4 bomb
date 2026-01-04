@@ -5,31 +5,32 @@ local LocalPlayer = Players.LocalPlayer
 
 -- // Configuration
 local Settings = {
-    Active = false,
-    Radius = 7,     -- Distance from player
-    Height = 1.5,   -- Vertical offset
-    TP_Speed = 0.05 -- How fast you change positions (lower = faster flickering)
+    OrbitActive = false,
+    Radius = 6,
+    Speed = 12,
+    Height = 1,
+    TargetPart = "HumanoidRootPart"
 }
 
 local TargetPlayer = nil
 local PlayerList = {}
 local CurrentIndex = 1
-local LockedTool = nil
+local LockedTool = nil -- Stores ONLY the first tool
 
--- // UI Setup
+-- // UI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 200, 0, 150)
 Main.Position = UDim2.new(0, 50, 0.5, -75)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "TP-ORBIT (Flicker)"
-Title.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
+Title.Text = "ORBIT LOCK-ON V2"
+Title.BackgroundColor3 = Color3.fromRGB(100, 0, 200)
 Title.TextColor3 = Color3.new(1,1,1)
 Title.Font = Enum.Font.GothamBold
 
@@ -57,11 +58,14 @@ Status.BackgroundTransparency = 1
 Status.Text = "STATUS: IDLE [K]"
 Status.TextColor3 = Color3.fromRGB(200, 200, 200)
 
--- // Functions
+-- // Helper Functions
 local function GetFirstWeapon()
+    -- Only get the very first item that exists in the backpack
     local items = LocalPlayer.Backpack:GetChildren()
     for _, item in pairs(items) do
-        if item:IsA("Tool") then return item end
+        if item:IsA("Tool") then
+            return item
+        end
     end
     return nil
 end
@@ -83,38 +87,37 @@ NextBtn.MouseButton1Click:Connect(function() CurrentIndex += 1 UpdateUI() end)
 PrevBtn.MouseButton1Click:Connect(function() CurrentIndex -= 1 UpdateUI() end)
 UpdateUI()
 
--- // TP LOOP
-local lastTP = 0
-RunService.Heartbeat:Connect(function()
-    if not Settings.Active or not TargetPlayer or not TargetPlayer.Character then return end
-    
+-- // MAIN LOOP
+local Angle = 0
+RunService.RenderStepped:Connect(function(dt)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local targetHrp = TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
     local camera = workspace.CurrentCamera
 
-    if hrp and targetHrp then
-        -- 1. Flicker Teleport Logic
-        if tick() - lastTP >= Settings.TP_Speed then
-            lastTP = tick()
-            
-            -- Randomize angle for the TP
-            local randomAngle = math.rad(math.random(0, 360))
-            local offset = Vector3.new(
-                math.cos(randomAngle) * Settings.Radius, 
-                Settings.Height, 
-                math.sin(randomAngle) * Settings.Radius
-            )
-            
-            -- Teleport and Look at target
-            hrp.CFrame = CFrame.new(targetHrp.Position + offset, targetHrp.Position)
-            camera.CFrame = CFrame.new(camera.CFrame.Position, targetHrp.Position)
-        end
+    if Settings.OrbitActive and TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild(Settings.TargetPart) then
+        local targetHrp = TargetPlayer.Character[Settings.TargetPart]
         
-        -- 2. Slot 1 Auto-Attack
-        if LockedTool then
-            if LockedTool.Parent ~= char then LockedTool.Parent = char end
-            LockedTool:Activate()
+        if hrp then
+            -- 1. Orbit Position
+            Angle = Angle + (Settings.Speed * dt)
+            local offset = Vector3.new(math.cos(Angle) * Settings.Radius, Settings.Height, math.sin(Angle) * Settings.Radius)
+            hrp.CFrame = CFrame.new(targetHrp.Position + offset, targetHrp.Position)
+            
+            -- 2. Camera Lock
+            camera.CFrame = CFrame.new(camera.CFrame.Position, targetHrp.Position)
+            
+            -- 3. Dedicated Slot 1 Logic
+            if LockedTool then
+                -- Only equip if we aren't already holding it
+                if LockedTool.Parent ~= char and LockedTool.Parent == LocalPlayer.Backpack then
+                    LockedTool.Parent = char
+                end
+                
+                -- Auto Fire / Use
+                if LockedTool.Parent == char then
+                    LockedTool:Activate()
+                end
+            end
         end
     end
 end)
@@ -122,15 +125,17 @@ end)
 -- // Toggle
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
+    
     if input.KeyCode == Enum.KeyCode.K then
-        Settings.Active = not Settings.Active
+        Settings.OrbitActive = not Settings.OrbitActive
         
-        if Settings.Active then
+        if Settings.OrbitActive then
+            -- Lock the tool the moment you start orbiting
             LockedTool = GetFirstWeapon()
+            
             Status.Text = "ACTIVE: " .. (LockedTool and LockedTool.Name or "No Tool")
             Status.TextColor3 = Color3.fromRGB(0, 255, 0)
             
-            -- Noclip
             if LocalPlayer.Character then
                 for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = false end
@@ -139,7 +144,8 @@ UIS.InputBegan:Connect(function(input, gpe)
         else
             Status.Text = "STATUS: IDLE"
             Status.TextColor3 = Color3.fromRGB(200, 200, 200)
-            LockedTool = nil
+            LockedTool = nil -- Release the lock
+            
             if LocalPlayer.Character then
                 for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = true end
