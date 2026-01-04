@@ -51,7 +51,7 @@ AimSection:slider({name = "Aim Speed", min = 1, max = 100, default = 50, callbac
 AimSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
 
 local TrigSection = MainTab:section({name = "Triggerbot"})
-TrigSection:toggle({name = "Enable Triggerbot", callback = function(v) Settings.Triggerbot = v end})
+local TrigToggle = TrigSection:toggle({name = "Enable Triggerbot (T)", callback = function(v) Settings.Triggerbot = v end})
 TrigSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end})
 
 -- Vision Section
@@ -64,27 +64,49 @@ ESPSection:toggle({name = "Health ESP", callback = function(v) Settings.ESP_Heal
 
 -- Movement Section
 local PhysSection = MiscTab:section({name = "Physics"})
-PhysSection:toggle({name = "Enable Speed", callback = function(v) Settings.SpeedEnabled = v end})
+local SpeedToggle = PhysSection:toggle({name = "Enable Speed (G)", callback = function(v) Settings.SpeedEnabled = v end})
 PhysSection:slider({name = "WalkSpeed", min = 16, max = 250, default = 16, callback = function(v) Settings.WalkSpeed = v end})
 PhysSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
 
 local FreecamSection = MiscTab:section({name = "Freecam"})
 local FreecamToggle = FreecamSection:toggle({name = "Enable Freecam (V)", callback = function(v) Settings.Freecam = v end})
 FreecamSection:slider({name = "Freecam Speed", min = 1, max = 10, default = 1, callback = function(v) Settings.FreecamSpeed = v end})
-FreecamSection:button({name = "Teleport to Camera", callback = function()
+
+-- Functional TP Function
+local function TeleportToCamera()
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = workspace.CurrentCamera.CFrame
     end
-end})
+end
+
+FreecamSection:button({name = "Teleport to Camera (X)", callback = TeleportToCamera})
 
 -- // 4. Keybind Handling
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe then return end
+    
+    -- Freecam Toggle (V)
     if input.KeyCode == Enum.KeyCode.V then
         Settings.Freecam = not Settings.Freecam
-        -- Update the UI toggle to match the state
         FreecamToggle:set(Settings.Freecam)
+    end
+
+    -- Teleport to Camera (X)
+    if input.KeyCode == Enum.KeyCode.X then
+        TeleportToCamera()
+    end
+
+    -- Triggerbot Toggle (T)
+    if input.KeyCode == Enum.KeyCode.T then
+        Settings.Triggerbot = not Settings.Triggerbot
+        TrigToggle:set(Settings.Triggerbot)
+    end
+
+    -- Speed Toggle (G)
+    if input.KeyCode == Enum.KeyCode.G then
+        Settings.SpeedEnabled = not Settings.SpeedEnabled
+        SpeedToggle:set(Settings.SpeedEnabled)
     end
 end)
 
