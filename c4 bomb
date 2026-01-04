@@ -4,32 +4,34 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- // Configuration
-local OrbitSettings = {
-    Radius = 5,
-    Speed = 15,
-    Height = 2,
-    Active = false
+local Settings = {
+    OrbitActive = false,
+    Radius = 6,
+    Speed = 12,
+    Height = 1,
+    TargetPart = "HumanoidRootPart" -- Lock onto center of mass
 }
 
 local TargetPlayer = nil
 local PlayerList = {}
 local CurrentIndex = 1
 
--- // UI (Basic Selector)
+-- // UI (Updated Design)
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 140)
-Main.Position = UDim2.new(0, 50, 0.5, -70)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.Size = UDim2.new(0, 200, 0, 150)
+Main.Position = UDim2.new(0, 50, 0.5, -75)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Main.Active = true
 Main.Draggable = true
 Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "ORBIT KILLER"
-Title.BackgroundColor3 = Color3.fromRGB(80, 0, 200)
+Title.Text = "ORBIT LOCK-ON"
+Title.BackgroundColor3 = Color3.fromRGB(120, 0, 255)
 Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBold
 
 local NameDisplay = Instance.new("TextLabel", Main)
 NameDisplay.Size = UDim2.new(1, 0, 0, 40)
@@ -50,12 +52,17 @@ PrevBtn.Text = "<"
 
 local Status = Instance.new("TextLabel", Main)
 Status.Size = UDim2.new(1, 0, 0, 30)
-Status.Position = UDim2.new(0, 0, 0.7, 0)
+Status.Position = UDim2.new(0, 0, 0.75, 0)
 Status.BackgroundTransparency = 1
-Status.Text = "Orbit: OFF [K]"
-Status.TextColor3 = Color3.fromRGB(255, 0, 0)
+Status.Text = "STATUS: IDLE [K]"
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
 
--- // Logic
+-- // Helper Functions
+local function GetSlot1()
+    local tool = LocalPlayer.Backpack:GetChildren()[1] or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool"))
+    return tool
+end
+
 local function UpdateUI()
     PlayerList = {}
     for _, v in pairs(Players:GetPlayers()) do
@@ -73,44 +80,62 @@ NextBtn.MouseButton1Click:Connect(function() CurrentIndex += 1 UpdateUI() end)
 PrevBtn.MouseButton1Click:Connect(function() CurrentIndex -= 1 UpdateUI() end)
 UpdateUI()
 
--- // Orbit Engine
+-- // MAIN LOOP
 local Angle = 0
 RunService.RenderStepped:Connect(function(dt)
-    if OrbitSettings.Active and TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local targetHrp = TargetPlayer.Character.HumanoidRootPart
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local camera = workspace.CurrentCamera
+
+    if Settings.OrbitActive and TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild(Settings.TargetPart) then
+        local targetHrp = TargetPlayer.Character[Settings.TargetPart]
         
         if hrp then
-            -- Calculate Orbit Position
-            Angle = Angle + (OrbitSettings.Speed * dt)
-            local x = math.cos(Angle) * OrbitSettings.Radius
-            local z = math.sin(Angle) * OrbitSettings.Radius
+            -- 1. Orbit Position Calculation
+            Angle = Angle + (Settings.Speed * dt)
+            local offset = Vector3.new(math.cos(Angle) * Settings.Radius, Settings.Height, math.sin(Angle) * Settings.Radius)
+            local newPos = targetHrp.Position + offset
             
-            hrp.CFrame = CFrame.new(targetHrp.Position + Vector3.new(x, OrbitSettings.Height, z), targetHrp.Position)
+            -- 2. Move Character and Face Target
+            hrp.CFrame = CFrame.new(newPos, targetHrp.Position)
             
-            -- Auto-Use Slot 1 Weapon
-            local tool = LocalPlayer.Backpack:GetChildren()[1] or char:FindFirstChildOfClass("Tool")
-            if tool then
-                if tool.Parent ~= char then tool.Parent = char end -- Equip if not held
-                tool:Activate() -- Fire/Plant/Explode
+            -- 3. Camera Lock-On (Smoothly follows target)
+            camera.CFrame = CFrame.new(camera.CFrame.Position, targetHrp.Position)
+            
+            -- 4. Triggerbot / Auto-Fire (Uses Slot 1)
+            local weapon = GetSlot1()
+            if weapon then
+                if weapon.Parent ~= char then weapon.Parent = char end
+                weapon:Activate()
             end
         end
     end
 end)
 
--- // Toggle
+-- // Toggle and Keybinds
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
+    
     if input.KeyCode == Enum.KeyCode.K then
-        OrbitSettings.Active = not OrbitSettings.Active
-        Status.Text = OrbitSettings.Active and "Orbit: ON [K]" or "Orbit: OFF [K]"
-        Status.TextColor3 = OrbitSettings.Active and Color3.new(0,1,0) or Color3.new(1,0,0)
+        Settings.OrbitActive = not Settings.OrbitActive
         
-        -- Noclip toggle so you don't get stuck in walls while orbiting
-        if LocalPlayer.Character then
-            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = not OrbitSettings.Active end
+        if Settings.OrbitActive then
+            Status.Text = "STATUS: ACTIVE"
+            Status.TextColor3 = Color3.fromRGB(0, 255, 0)
+            -- Disable collisions so you don't get stuck in the floor or walls
+            if LocalPlayer.Character then
+                for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
+            end
+        else
+            Status.Text = "STATUS: IDLE"
+            Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+            -- Re-enable collisions
+            if LocalPlayer.Character then
+                for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = true end
+                end
             end
         end
     end
