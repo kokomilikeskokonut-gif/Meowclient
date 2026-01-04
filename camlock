@@ -1,0 +1,112 @@
+-- // 1. Load the Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+
+-- // 2. Configuration & State
+local Settings = {
+    Camlock = false,
+    Prediction = 0.165, -- Standard Da Hood prediction
+    Smoothness = 0.1,
+    TargetPart = "UpperTorso", -- Better for Da Hood than Head
+    TeamCheck = false,
+    FOV = 150,
+    FOV_Visible = true
+}
+
+local CurrentTarget = nil
+
+-- // 3. Build the UI
+local Window = Library:new({
+    name = "Blossom Pink - Camlock",
+    ConfigName = "BlossomCamlock"
+})
+
+local MainTab = Window:page({name = "Main"})
+local CamSection = MainTab:section({name = "Camlock Settings"})
+
+CamSection:toggle({name = "Enable Camlock (Q)", callback = function(v) Settings.Camlock = v end})
+CamSection:dropdown({
+    name = "Target Part",
+    content = {"Head", "UpperTorso", "HumanoidRootPart", "LowerTorso"},
+    default = "UpperTorso",
+    callback = function(v) Settings.TargetPart = v end
+})
+CamSection:slider({name = "Prediction", min = 100, max = 200, default = 165, callback = function(v) Settings.Prediction = v / 1000 end})
+CamSection:slider({name = "Smoothness", min = 1, max = 100, default = 10, callback = function(v) Settings.Smoothness = v / 100 end})
+CamSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
+
+-- // 4. Target Logic
+local function getClosestPlayerToCursor()
+    local target, closest = nil, Settings.FOV
+    local cam = workspace.CurrentCamera
+    local mouse = game:GetService("UserInputService"):GetMouseLocation()
+
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.TargetPart) then
+            -- Da Hood KO Check
+            local bodyEffects = p.Character:FindFirstChild("BodyEffects")
+            local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+            local isDead = p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health <= 0
+
+            if not isKO and not isDead then
+                local pos, onScreen = cam:WorldToViewportPoint(p.Character[Settings.TargetPart].Position)
+                local dist = (Vector2.new(pos.X, pos.Y) - mouse).Magnitude
+
+                if onScreen and dist < closest then
+                    closest = dist
+                    target = p.Character[Settings.TargetPart]
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- // 5. Keybind Handling
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Q then
+        Settings.Camlock = not Settings.Camlock
+        if not Settings.Camlock then
+            CurrentTarget = nil
+        end
+    end
+end)
+
+-- // 6. Rendering Loop (The Engine)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 182, 193)
+FOVCircle.Thickness = 1
+FOVCircle.Visible = true
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    local cam = workspace.CurrentCamera
+    local UIS = game:GetService("UserInputService")
+    
+    -- Update FOV Circle
+    FOVCircle.Position = UIS:GetMouseLocation()
+    FOVCircle.Radius = Settings.FOV
+    FOVCircle.Visible = true
+
+    if Settings.Camlock then
+        -- Find target if we don't have one
+        if not CurrentTarget then
+            CurrentTarget = getClosestPlayerToCursor()
+        end
+
+        -- Lock onto target with Prediction
+        if CurrentTarget and CurrentTarget.Parent then
+            local hrp = CurrentTarget.Parent:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                -- THE FORMULA: Position + (Velocity * Prediction)
+                local predictedPos = CurrentTarget.Position + (hrp.Velocity * Settings.Prediction)
+                local lookAt = CFrame.new(cam.CFrame.Position, predictedPos)
+                
+                cam.CFrame = cam.CFrame:Lerp(lookAt, Settings.Smoothness)
+            end
+        else
+            CurrentTarget = nil
+        end
+    else
+        CurrentTarget = nil
+    end
+end)
