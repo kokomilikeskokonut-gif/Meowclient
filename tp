@@ -1,0 +1,159 @@
+-- // Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- // Variables
+local TargetPlayer = nil
+local PlayerList = {}
+local CurrentIndex = 1
+
+-- // UI Creation (Standalone - No Library Needed)
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local PlayerNameLabel = Instance.new("TextLabel")
+local PrevButton = Instance.new("TextButton")
+local NextButton = Instance.new("TextButton")
+local StatusLabel = Instance.new("TextLabel")
+local UICorner = Instance.new("UICorner")
+
+-- Properties
+ScreenGui.Name = "TP_Selector_UI"
+ScreenGui.Parent = game.CoreGui
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.Position = UDim2.new(0.02, 0, 0.5, -50) -- Left side of screen
+MainFrame.Size = UDim2.new(0, 200, 0, 110)
+MainFrame.Active = true
+MainFrame.Draggable = true -- You can drag the UI
+
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0, 8)
+
+Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(255, 182, 193) -- Pink Theme
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Teleport Selector"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+local titleCorner = Instance.new("UICorner", Title)
+titleCorner.CornerRadius = UDim.new(0, 8)
+
+PlayerNameLabel.Parent = MainFrame
+PlayerNameLabel.BackgroundTransparency = 1
+PlayerNameLabel.Position = UDim2.new(0, 0, 0.35, 0)
+PlayerNameLabel.Size = UDim2.new(1, 0, 0, 25)
+PlayerNameLabel.Font = Enum.Font.Gotham
+PlayerNameLabel.Text = "No Players"
+PlayerNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerNameLabel.TextSize = 16
+
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+StatusLabel.Size = UDim2.new(1, 0, 0, 15)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "Press 'U' to TP"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+StatusLabel.TextSize = 12
+
+-- Buttons
+PrevButton.Parent = MainFrame
+PrevButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+PrevButton.Position = UDim2.new(0.05, 0, 0.35, 0)
+PrevButton.Size = UDim2.new(0, 25, 0, 25)
+PrevButton.Font = Enum.Font.GothamBold
+PrevButton.Text = "<"
+PrevButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local prevCorner = Instance.new("UICorner", PrevButton)
+prevCorner.CornerRadius = UDim.new(0, 4)
+
+NextButton.Parent = MainFrame
+NextButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+NextButton.Position = UDim2.new(0.82, 0, 0.35, 0)
+NextButton.Size = UDim2.new(0, 25, 0, 25)
+NextButton.Font = Enum.Font.GothamBold
+NextButton.Text = ">"
+NextButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+local nextCorner = Instance.new("UICorner", NextButton)
+nextCorner.CornerRadius = UDim.new(0, 4)
+
+-- // Functions
+
+local function UpdatePlayerList()
+    PlayerList = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(PlayerList, p)
+        end
+    end
+end
+
+local function UpdateUI()
+    if #PlayerList == 0 then
+        PlayerNameLabel.Text = "No Target"
+        TargetPlayer = nil
+        return
+    end
+
+    -- Wrap index if out of bounds
+    if CurrentIndex > #PlayerList then CurrentIndex = 1 end
+    if CurrentIndex < 1 then CurrentIndex = #PlayerList end
+
+    TargetPlayer = PlayerList[CurrentIndex]
+    PlayerNameLabel.Text = TargetPlayer.Name
+end
+
+-- // Button Logic
+PrevButton.MouseButton1Click:Connect(function()
+    UpdatePlayerList()
+    CurrentIndex = CurrentIndex - 1
+    UpdateUI()
+end)
+
+NextButton.MouseButton1Click:Connect(function()
+    UpdatePlayerList()
+    CurrentIndex = CurrentIndex + 1
+    UpdateUI()
+end)
+
+-- Initial Load
+UpdatePlayerList()
+UpdateUI()
+
+-- Auto-refresh list when players join/leave
+Players.PlayerAdded:Connect(function() UpdatePlayerList() UpdateUI() end)
+Players.PlayerRemoving:Connect(function() UpdatePlayerList() UpdateUI() end)
+
+-- // Teleport Logic (Keybind: U)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.U then
+        if TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myChar = LocalPlayer.Character
+            if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                -- Teleport Slightly behind them to avoid instant detection/stuck
+                myChar.HumanoidRootPart.CFrame = TargetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                
+                -- Visual Feedback
+                StatusLabel.Text = "Teleported!"
+                StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                task.wait(1)
+                StatusLabel.Text = "Press 'U' to TP"
+                StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end
+        else
+            StatusLabel.Text = "Target Invalid"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+            task.wait(1)
+            StatusLabel.Text = "Press 'U' to TP"
+            StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
+end)
