@@ -49,6 +49,11 @@ local MainTab = Window:page({name = "Combat"})
 local VisionTab = Window:page({name = "Vision"})
 local MiscTab = Window:page({name = "Movement"})
 
+-- Config Section
+local SaveSection = ConfigTab:section({name = "Settings Management"})
+SaveSection:button({name = "Save Current Config", callback = SaveConfig})
+SaveSection:button({name = "Load Saved Config", callback = LoadConfig})
+
 -- Combat Section
 local AimSection = MainTab:section({name = "Aimbot Settings"})
 AimSection:toggle({name = "Enable Aimbot", callback = function(v) Settings.Aimbot = v end})
