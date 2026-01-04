@@ -75,31 +75,36 @@ local FreecamSection = MiscTab:section({name = "Freecam"})
 local FreecamToggle = FreecamSection:toggle({name = "Enable Freecam (V)", callback = function(v) Settings.Freecam = v end})
 FreecamSection:slider({name = "Freecam Speed", min = 1, max = 10, default = 1, callback = function(v) Settings.FreecamSpeed = v end})
 
--- Spectate Section
+-- Spectate Section (Updated to Textbox)
 local SpecSection = MiscTab:section({name = "Spectate"})
 local SpecToggle = SpecSection:toggle({name = "Enable Spectate (H)", callback = function(v) 
     Settings.SpectateEnabled = v 
-    if not v then workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") end
+    if not v then 
+        workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") 
+    end
 end})
 
-local SpecDropdown = SpecSection:dropdown({
-    name = "Select Player",
-    content = {},
+SpecSection:textbox({
+    name = "Enter Username",
+    placeholder = "Player Name...",
     callback = function(v)
-        Settings.SpectateTarget = game.Players:FindFirstChild(v)
+        local found = nil
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Name:lower():sub(1, #v) == v:lower() then
+                found = p
+                break
+            end
+        end
+        
+        if found then
+            Settings.SpectateTarget = found
+            print("Spectating: " .. found.Name)
+        else
+            Settings.SpectateTarget = nil
+            warn("Player not found")
+        end
     end
 })
-
--- Update Player List for Spectate
-task.spawn(function()
-    while task.wait(3) do
-        local plrs = {}
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p ~= game.Players.LocalPlayer then table.insert(plrs, p.Name) end
-        end
-        SpecDropdown:refresh(plrs)
-    end
-end)
 
 -- Functional TP Function
 local function TeleportToCamera()
@@ -254,7 +259,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
             UIS.MouseBehavior = Enum.MouseBehavior.Default
         end
         
-        -- Spectate Logic (Only runs if Freecam is OFF)
+        -- Spectate Logic
         if Settings.SpectateEnabled and Settings.SpectateTarget and Settings.SpectateTarget.Character then
             local targetHum = Settings.SpectateTarget.Character:FindFirstChild("Humanoid")
             if targetHum then cam.CameraSubject = targetHum end
