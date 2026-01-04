@@ -26,7 +26,19 @@ local Settings = {
     Freecam = false,
     FreecamSpeed = 1
 }
+-- // [QoL] Config System Functions
+local function SaveConfig()
+    local json = HttpService:JSONEncode(Settings)
+    if not isfolder("BlossomHub") then makefolder("BlossomHub") end
+    writefile("BlossomHub/config.json", json)
+end
 
+local function LoadConfig()
+    if isfile("BlossomHub/config.json") then
+        local data = HttpService:JSONDecode(readfile("BlossomHub/config.json"))
+        for k, v in pairs(data) do Settings[k] = v end
+    end
+end
 -- // 3. Build the UI
 local Window = Library:new({
     name = "Blossom Pink Hub",
