@@ -1,0 +1,89 @@
+-- // 1. Load the Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+
+-- // 2. Configuration & State
+local Settings = {
+    AttackEnabled = false,
+    TargetName = "",
+    TeleportOffset = Vector3.new(0, 2, 0) -- Teleports slightly above them
+}
+
+-- // 3. Build the UI
+local Window = Library:new({
+    name = "Meow - Execution",
+    ConfigName = "AttackConfig"
+})
+
+local MainTab = Window:page({name = "Combat"})
+local AttackSection = MainTab:section({name = "Target Execution"})
+
+AttackSection:textbox({
+    name = "Target Username",
+    placeholder = "Enter Name...",
+    callback = function(v)
+        Settings.TargetName = v
+    end
+})
+
+AttackSection:toggle({
+    name = "ENABLE ATTACK LOOP",
+    callback = function(v)
+        Settings.AttackEnabled = v
+    end
+})
+
+AttackSection:button({
+    name = "FORCE EQUIP SLOT 3",
+    callback = function()
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+        task.wait(0.05)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+    end
+})
+
+-- // 4. Attack Logic Engine
+task.spawn(function()
+    while task.wait() do
+        if Settings.AttackEnabled and Settings.TargetName ~= "" then
+            local lp = game.Players.LocalPlayer
+            local char = lp.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            
+            -- Find the Target
+            local targetPlr = nil
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Name:lower():find(Settings.TargetName:lower()) and p ~= lp then
+                    targetPlr = p
+                    break
+                end
+            end
+            
+            if targetPlr and targetPlr.Character and targetPlr.Character:FindFirstChild("HumanoidRootPart") then
+                local targetHRP = targetPlr.Character.HumanoidRootPart
+                local targetHum = targetPlr.Character:FindFirstChild("Humanoid")
+                
+                if targetHum and targetHum.Health > 0 then
+                    -- 1. Teleport to Target
+                    hrp.CFrame = targetHRP.CFrame * CFrame.new(0, 2, 1) -- Slightly above and behind
+                    
+                    -- 2. Look Down (Force Camera)
+                    workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetHRP.Position - Vector3.new(0, 5, 0))
+                    
+                    -- 3. Press 3 (Equip)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+                    task.wait(0.01)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+                    
+                    -- 4. Spam Click
+                    mouse1click()
+                end
+            end
+        end
+    end
+end)
+
+-- // 5. Visual section for confirmation
+local InfoSection = MainTab:section({name = "Info"})
+InfoSection:label({name = "1. Enter partial name"})
+InfoSection:label({name = "2. Turn on Attack Loop"})
+InfoSection:label({name = "3. Script will TP and spam Slot 3"})
