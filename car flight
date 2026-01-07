@@ -1,0 +1,83 @@
+-- // 1. Load the Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
+
+-- // 2. Configuration & State
+local Settings = {
+    FlyEnabled = false,
+    FlySpeed = 50,
+    FlightHeight = 2 -- Buffer height above ground
+}
+
+-- // 3. Build the UI
+local Window = Library:new({
+    name = "Meow - Car Fly",
+    ConfigName = "CarFlyConfig"
+})
+
+local MainTab = Window:page({name = "Vehicle"})
+local FlySection = MainTab:section({name = "Flight Controls"})
+
+FlySection:toggle({
+    name = "Enable Car Fly",
+    callback = function(v)
+        Settings.FlyEnabled = v
+    end
+})
+
+FlySection:slider({
+    name = "Flight Speed",
+    min = 20,
+    max = 300,
+    default = 50,
+    callback = function(v)
+        Settings.FlySpeed = v
+    end
+})
+
+-- // 4. Flight Engine
+game:GetService("RunService").RenderStepped:Connect(function()
+    local lp = game.Players.LocalPlayer
+    local char = lp.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    -- Check if the player is in a vehicle seat
+    if Settings.FlyEnabled and hum and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then
+        local seat = hum.SeatPart
+        local car = seat.Parent
+        local root = seat -- We apply force directly to the seat
+        
+        -- Create physics objects if they don't exist
+        local bv = root:FindFirstChild("FlyVelocity") or Instance.new("BodyVelocity")
+        local bg = root:FindFirstChild("FlyGyro") or Instance.new("BodyGyro")
+        
+        bv.Name = "FlyVelocity"
+        bv.Parent = root
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        
+        bg.Name = "FlyGyro"
+        bg.Parent = root
+        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bg.CFrame = workspace.CurrentCamera.CFrame -- Matches car rotation to camera
+        
+        -- Calculate Movement
+        local moveDir = Vector3.new(0, 0, 0)
+        local camCF = workspace.CurrentCamera.CFrame
+        local UIS = game:GetService("UserInputService")
+        
+        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCF.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCF.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCF.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCF.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+        
+        bv.Velocity = moveDir * Settings.FlySpeed
+    else
+        -- Clean up physics when disabled or exiting car
+        local seat = hum and hum.SeatPart
+        if seat then
+            if seat:FindFirstChild("FlyVelocity") then seat.FlyVelocity:Destroy() end
+            if seat:FindFirstChild("FlyGyro") then seat.FlyGyro:Destroy() end
+        end
+    end
+end)
