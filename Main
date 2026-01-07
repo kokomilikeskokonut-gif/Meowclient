@@ -3,6 +3,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokom
 
 -- // 2. Configuration & State
 local Settings = {
+    -- Combat
     Aimbot = false,
     TeamCheck = true,
     WallCheck = true,
@@ -12,34 +13,48 @@ local Settings = {
     Smoothness = 0.5,
     Triggerbot = false,
     TriggerDelay = 0,
-    -- ESP Settings
+    
+    -- Execution
+    AttackEnabled = false,
+    TargetName = "",
+    
+    -- Visuals
     ESP_Enabled = false,
     ESP_Boxes = false,
     ESP_Tracers = false,
     ESP_Names = false,
     ESP_Health = false,
-    -- Movement & Misc
+    
+    -- Movement
     SpeedEnabled = false,
     WalkSpeed = 16,
     Noclip = false,
+    
+    -- Spinbot / Dodge
+    DodgeEnabled = false,
+    DodgeMode = "Spin", -- Spin or Jitter
+    DodgeSpeed = 100,
+    
+    -- Flight
     Freecam = false,
     FreecamSpeed = 1,
-    -- Vehicle Flight
     CarFlyEnabled = false,
     CarFlySpeed = 50
 }
 
 -- // 3. Build the UI
 local Window = Library:new({
-    name = "Meow",
-    ConfigName = "Meow"
+    name = "Meow - Ultimate",
+    ConfigName = "MeowFull"
 })
 
 local MainTab = Window:page({name = "Combat"})
 local VisionTab = Window:page({name = "Vision"})
 local MiscTab = Window:page({name = "Movement"})
 
--- Combat Section
+-- [COMBAT TAB] --
+
+-- Aimbot Section
 local AimSection = MainTab:section({name = "Aimbot Settings"})
 AimSection:toggle({name = "Enable Aimbot", callback = function(v) Settings.Aimbot = v end})
 AimSection:toggle({name = "Team Check", callback = function(v) Settings.TeamCheck = v end})
@@ -53,11 +68,33 @@ AimSection:dropdown({
 AimSection:slider({name = "Aim Speed", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
 AimSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
 
+-- Target Execution Section
+local AttackSection = MainTab:section({name = "Target Execution"})
+AttackSection:textbox({
+    name = "Target Username",
+    placeholder = "Enter Name...",
+    callback = function(v) Settings.TargetName = v end
+})
+AttackSection:toggle({
+    name = "ENABLE ATTACK LOOP",
+    callback = function(v) Settings.AttackEnabled = v end
+})
+AttackSection:button({
+    name = "FORCE EQUIP SLOT 3",
+    callback = function()
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+        task.wait(0.05)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+    end
+})
+
+-- Triggerbot Section
 local TrigSection = MainTab:section({name = "Triggerbot"})
 local TrigToggle = TrigSection:toggle({name = "Enable Triggerbot (T)", callback = function(v) Settings.Triggerbot = v end})
 TrigSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end})
 
--- Vision Section
+-- [VISION TAB] --
+
 local ESPSection = VisionTab:section({name = "Visuals"})
 ESPSection:toggle({name = "Master Switch", callback = function(v) Settings.ESP_Enabled = v end})
 ESPSection:toggle({name = "Box ESP", callback = function(v) Settings.ESP_Boxes = v end})
@@ -65,60 +102,92 @@ ESPSection:toggle({name = "Tracers", callback = function(v) Settings.ESP_Tracers
 ESPSection:toggle({name = "Name ESP", callback = function(v) Settings.ESP_Names = v end})
 ESPSection:toggle({name = "Health ESP", callback = function(v) Settings.ESP_Health = v end})
 
--- Movement Section
+-- [MOVEMENT TAB] --
+
+-- Physics Section
 local PhysSection = MiscTab:section({name = "Physics"})
 local SpeedToggle = PhysSection:toggle({name = "Enable Speed (G)", callback = function(v) Settings.SpeedEnabled = v end})
 PhysSection:slider({name = "WalkSpeed", min = 16, max = 250, default = 16, callback = function(v) Settings.WalkSpeed = v end})
 PhysSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
 
+-- Spinbot / Dodge Section
+local DodgeSection = MiscTab:section({name = "Spinbot / Dodge"})
+DodgeSection:toggle({name = "Enable Spinbot", callback = function(v) Settings.DodgeEnabled = v end})
+DodgeSection:dropdown({
+    name = "Dodge Mode",
+    content = {"Spin", "Jitter"},
+    default = "Spin",
+    callback = function(v) Settings.DodgeMode = v end
+})
+DodgeSection:slider({name = "Spin Speed", min = 10, max = 500, default = 100, callback = function(v) Settings.DodgeSpeed = v end})
+
+-- Vehicle Section
 local VehicleSection = MiscTab:section({name = "Vehicle Flight"})
 local CarFlyToggle = VehicleSection:toggle({name = "Enable Car Fly (K)", callback = function(v) Settings.CarFlyEnabled = v end})
 VehicleSection:slider({name = "Flight Speed", min = 10, max = 500, default = 50, callback = function(v) Settings.CarFlySpeed = v end})
 
+-- Freecam Section
 local FreecamSection = MiscTab:section({name = "Freecam"})
 local FreecamToggle = FreecamSection:toggle({name = "Enable Freecam (V)", callback = function(v) Settings.Freecam = v end})
 FreecamSection:slider({name = "Freecam Speed", min = 1, max = 10, default = 1, callback = function(v) Settings.FreecamSpeed = v end})
 
--- Functional TP Function
 local function TeleportToCamera()
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = workspace.CurrentCamera.CFrame
     end
 end
-
 FreecamSection:button({name = "Teleport to Camera (X)", callback = TeleportToCamera})
 
--- // 4. Keybind Handling
-game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    
-    if input.KeyCode == Enum.KeyCode.V then
-        Settings.Freecam = not Settings.Freecam
-        FreecamToggle:set(Settings.Freecam)
-    end
-
-    if input.KeyCode == Enum.KeyCode.X then
-        TeleportToCamera()
-    end
-
-    if input.KeyCode == Enum.KeyCode.T then
-        Settings.Triggerbot = not Settings.Triggerbot
-        TrigToggle:set(Settings.Triggerbot)
-    end
-
-    if input.KeyCode == Enum.KeyCode.G then
-        Settings.SpeedEnabled = not Settings.SpeedEnabled
-        SpeedToggle:set(Settings.SpeedEnabled)
-    end
-
-    if input.KeyCode == Enum.KeyCode.K then
-        Settings.CarFlyEnabled = not Settings.CarFlyEnabled
-        CarFlyToggle:set(Settings.CarFlyEnabled)
+-- // 4. Attack Loop Logic (The Execution Engine)
+task.spawn(function()
+    while task.wait() do
+        if Settings.AttackEnabled and Settings.TargetName ~= "" then
+            local lp = game.Players.LocalPlayer
+            local char = lp.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            
+            -- Find Target
+            local targetPlr = nil
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Name:lower():find(Settings.TargetName:lower()) and p ~= lp then
+                    targetPlr = p
+                    break
+                end
+            end
+            
+            -- Execute
+            if targetPlr and targetPlr.Character and targetPlr.Character:FindFirstChild("HumanoidRootPart") then
+                local targetHRP = targetPlr.Character.HumanoidRootPart
+                local targetHum = targetPlr.Character:FindFirstChild("Humanoid")
+                
+                if targetHum and targetHum.Health > 0 and hrp then
+                    -- 1. TP
+                    hrp.CFrame = targetHRP.CFrame * CFrame.new(0, 2, 1)
+                    -- 2. Look Down
+                    workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetHRP.Position - Vector3.new(0, 5, 0))
+                    -- 3. Equip Slot 3 & Click
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+                    task.wait(0.01)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+                    mouse1click()
+                end
+            end
+        end
     end
 end)
 
--- // 5. Engines
+-- // 5. Keybind Handling
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.V then Settings.Freecam = not Settings.Freecam; FreecamToggle:set(Settings.Freecam) end
+    if input.KeyCode == Enum.KeyCode.X then TeleportToCamera() end
+    if input.KeyCode == Enum.KeyCode.T then Settings.Triggerbot = not Settings.Triggerbot; TrigToggle:set(Settings.Triggerbot) end
+    if input.KeyCode == Enum.KeyCode.G then Settings.SpeedEnabled = not Settings.SpeedEnabled; SpeedToggle:set(Settings.SpeedEnabled) end
+    if input.KeyCode == Enum.KeyCode.K then Settings.CarFlyEnabled = not Settings.CarFlyEnabled; CarFlyToggle:set(Settings.CarFlyEnabled) end
+end)
+
+-- // 6. Helper Functions
 local function isVisible(targetPart)
     if not Settings.WallCheck then return true end
     local camera = workspace.CurrentCamera
@@ -156,7 +225,7 @@ local function getBestTarget()
     return target
 end
 
--- // 6. Rendering Loop
+-- // 7. Main Rendering Loop
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(255, 182, 193)
 FOVCircle.Thickness = 1
@@ -174,7 +243,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
     FOVCircle.Position = UIS:GetMouseLocation()
     FOVCircle.Radius = Settings.FOV
 
-    -- Triggerbot
+    -- Aimbot & Triggerbot
     if Settings.Triggerbot and not TriggerLocked then
         local target = lp:GetMouse().Target
         if target and target.Parent:FindFirstChild("Humanoid") then
@@ -189,19 +258,30 @@ game:GetService("RunService").RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot
     if Settings.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getBestTarget()
-        if t then
-            cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, t.Position), Settings.Smoothness)
-        end
+        if t then cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, t.Position), Settings.Smoothness) end
     end
 
-    -- Movement
-    if char and char:FindFirstChild("Humanoid") then
+    -- Movement & Physics
+    if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+        -- Walkspeed
         char.Humanoid.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
+        
+        -- Noclip
         if Settings.Noclip then
             for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+        end
+
+        -- Spinbot / Dodge Logic
+        if Settings.DodgeEnabled then
+            local hrp = char.HumanoidRootPart
+            if Settings.DodgeMode == "Spin" then
+                hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.DodgeSpeed), 0)
+            elseif Settings.DodgeMode == "Jitter" then
+                local offset = (math.random(-1, 1) * Settings.DodgeSpeed) / 50
+                hrp.CFrame = hrp.CFrame * CFrame.new(offset, 0, 0)
+            end
         end
         
         -- Car Flight Logic
@@ -210,12 +290,8 @@ game:GetService("RunService").RenderStepped:Connect(function()
             local root = hum.SeatPart
             local bv = root:FindFirstChild("MeowFlyV") or Instance.new("BodyVelocity", root)
             local bg = root:FindFirstChild("MeowFlyG") or Instance.new("BodyGyro", root)
-            
-            bv.Name = "MeowFlyV"
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bg.Name = "MeowFlyG"
-            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            
+            bv.Name = "MeowFlyV"; bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bg.Name = "MeowFlyG"; bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
             bg.CFrame = cam.CFrame
             local moveDir = Vector3.new(0,0,0)
             if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
@@ -224,7 +300,6 @@ game:GetService("RunService").RenderStepped:Connect(function()
             if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
             if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0,1,0) end
             if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0,1,0) end
-            
             bv.Velocity = moveDir * Settings.CarFlySpeed
         else
             if hum.SeatPart and hum.SeatPart:FindFirstChild("MeowFlyV") then hum.SeatPart.MeowFlyV:Destroy() end
@@ -254,52 +329,30 @@ game:GetService("RunService").RenderStepped:Connect(function()
         cam.CFrame = CFrame.new(cam.CFrame.Position + (moveDir * Settings.FreecamSpeed)) * newRotCFrame
     else
         LastFreecamState = false
-        if cam.CameraType == Enum.CameraType.Scriptable then 
-            cam.CameraType = Enum.CameraType.Custom 
-            UIS.MouseBehavior = Enum.MouseBehavior.Default
-        end
+        if cam.CameraType == Enum.CameraType.Scriptable then cam.CameraType = Enum.CameraType.Custom; UIS.MouseBehavior = Enum.MouseBehavior.Default end
     end
 end)
 
--- // 7. ESP System
+-- // 8. ESP System
 local function CreateESP(plr)
-    local Box = Drawing.new("Square")
-    local Tracer = Drawing.new("Line")
-    local Name = Drawing.new("Text")
-    Box.Color = Color3.fromRGB(255, 182, 193)
-    Box.Thickness = 1
-    Box.Filled = false
+    local Box, Tracer, Name = Drawing.new("Square"), Drawing.new("Line"), Drawing.new("Text")
+    Box.Color = Color3.fromRGB(255, 182, 193); Box.Thickness = 1; Box.Filled = false
     Tracer.Color = Color3.fromRGB(255, 182, 193)
-    Name.Color = Color3.fromRGB(255, 255, 255)
-    Name.Outline = true
-    Name.Center = true
-    Name.Size = 16
-
+    Name.Color = Color3.fromRGB(255, 255, 255); Name.Outline = true; Name.Center = true; Name.Size = 16
     game:GetService("RunService").RenderStepped:Connect(function()
         if Settings.ESP_Enabled and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character.Humanoid.Health > 0 then
             local hrp = plr.Character.HumanoidRootPart
             local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
             if onScreen then
-                Box.Visible = Settings.ESP_Boxes
-                Tracer.Visible = Settings.ESP_Tracers
-                Name.Visible = Settings.ESP_Names
+                Box.Visible, Tracer.Visible, Name.Visible = Settings.ESP_Boxes, Settings.ESP_Tracers, Settings.ESP_Names
                 if Settings.ESP_Boxes then
-                    local size = 2500 / pos.Z
-                    Box.Size = Vector2.new(size, size * 1.4)
-                    Box.Position = Vector2.new(pos.X - size / 2, pos.Y - (size * 1.4) / 2)
+                    local size = 2500 / pos.Z; Box.Size = Vector2.new(size, size * 1.4); Box.Position = Vector2.new(pos.X - size / 2, pos.Y - (size * 1.4) / 2)
                 end
-                if Settings.ESP_Tracers then
-                    Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-                    Tracer.To = Vector2.new(pos.X, pos.Y)
-                end
-                if Settings.ESP_Names then
-                    Name.Position = Vector2.new(pos.X, pos.Y - (Box.Size.Y / 2) - 15)
-                    Name.Text = plr.Name .. (Settings.ESP_Health and " [" .. math.floor(plr.Character.Humanoid.Health) .. "]" or "")
-                end
+                if Settings.ESP_Tracers then Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y); Tracer.To = Vector2.new(pos.X, pos.Y) end
+                if Settings.ESP_Names then Name.Position = Vector2.new(pos.X, pos.Y - (Box.Size.Y / 2) - 15); Name.Text = plr.Name .. (Settings.ESP_Health and " [" .. math.floor(plr.Character.Humanoid.Health) .. "]" or "") end
             else Box.Visible = false; Tracer.Visible = false; Name.Visible = false end
         else Box.Visible = false; Tracer.Visible = false; Name.Visible = false end
     end)
 end
-
 for _, p in pairs(game.Players:GetPlayers()) do if p ~= game.Players.LocalPlayer then CreateESP(p) end end
 game.Players.PlayerAdded:Connect(CreateESP)
