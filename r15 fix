@@ -1,1 +1,434 @@
+-- // 1. Load the Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/kokomilikeskokonut-gif/Meow/refs/heads/main/1-main/projects/ui.lua"))()
 
+-- // 2. Configuration & State
+local Settings = {
+    -- Combat
+    Aimbot = false,
+    TeamCheck = true,
+    WallCheck = true,
+    Priority = "Distance", 
+    FOV = 150,
+    TargetPart = "Head", -- Supports "Head", "UpperTorso", "HumanoidRootPart"
+    Smoothness = 0.5,
+    Triggerbot = false,
+    TriggerDelay = 0,
+    
+    -- Execution
+    AttackEnabled = false,
+    TargetName = "",
+    
+    -- Visuals
+    ESP_Enabled = false,
+    ESP_Boxes = false,
+    ESP_Tracers = false,
+    ESP_Names = false,
+    ESP_Health = false,
+    
+    -- Movement
+    SpeedEnabled = false,
+    WalkSpeed = 16,
+    Noclip = false,
+    
+    -- Spinbot / Dodge
+    DodgeEnabled = false,
+    DodgeMode = "Spin", -- Spin or Jitter
+    DodgeSpeed = 100,
+    
+    -- Flight
+    Freecam = false,
+    FreecamSpeed = 1,
+    CarFlyEnabled = false,
+    CarFlySpeed = 50
+}
+
+-- // 3. Build the UI
+local Window = Library:new({
+    name = "Meow - Ultimate (R15 Fixed)",
+    ConfigName = "MeowFullR15"
+})
+
+local MainTab = Window:page({name = "Combat"})
+local VisionTab = Window:page({name = "Vision"})
+local MiscTab = Window:page({name = "Movement"})
+
+-- [COMBAT TAB] --
+
+-- Aimbot Section
+local AimSection = MainTab:section({name = "Aimbot Settings"})
+AimSection:toggle({name = "Enable Aimbot", callback = function(v) Settings.Aimbot = v end})
+AimSection:toggle({name = "Team Check", callback = function(v) Settings.TeamCheck = v end})
+AimSection:toggle({name = "Wall Check", default = true, callback = function(v) Settings.WallCheck = v end})
+AimSection:dropdown({
+    name = "Target Priority",
+    content = {"Distance", "Health"},
+    default = "Distance",
+    callback = function(v) Settings.Priority = v end
+})
+AimSection:dropdown({
+    name = "Target Part",
+    content = {"Head", "UpperTorso", "HumanoidRootPart"},
+    default = "Head",
+    callback = function(v) Settings.TargetPart = v end
+})
+AimSection:slider({name = "Aim Speed", min = 1, max = 100, default = 50, callback = function(v) Settings.Smoothness = v / 100 end})
+AimSection:slider({name = "FOV Radius", min = 50, max = 800, default = 150, callback = function(v) Settings.FOV = v end})
+
+-- Target Execution Section
+local AttackSection = MainTab:section({name = "Target Execution"})
+AttackSection:textbox({
+    name = "Target Username",
+    placeholder = "Enter Name...",
+    callback = function(v) Settings.TargetName = v end
+})
+AttackSection:toggle({
+    name = "ENABLE ATTACK LOOP",
+    callback = function(v) Settings.AttackEnabled = v end
+})
+AttackSection:button({
+    name = "FORCE EQUIP SLOT 3",
+    callback = function()
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+        task.wait(0.05)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+    end
+})
+
+-- Triggerbot Section
+local TrigSection = MainTab:section({name = "Triggerbot"})
+local TrigToggle = TrigSection:toggle({name = "Enable Triggerbot (T)", callback = function(v) Settings.Triggerbot = v end})
+TrigSection:slider({name = "Shot Delay (ms)", min = 0, max = 500, default = 0, callback = function(v) Settings.TriggerDelay = v / 1000 end})
+
+-- [VISION TAB] --
+
+local ESPSection = VisionTab:section({name = "Visuals"})
+ESPSection:toggle({name = "Master Switch", callback = function(v) Settings.ESP_Enabled = v end})
+ESPSection:toggle({name = "Box ESP", callback = function(v) Settings.ESP_Boxes = v end})
+ESPSection:toggle({name = "Tracers", callback = function(v) Settings.ESP_Tracers = v end})
+ESPSection:toggle({name = "Name ESP", callback = function(v) Settings.ESP_Names = v end})
+ESPSection:toggle({name = "Health ESP", callback = function(v) Settings.ESP_Health = v end})
+
+-- [MOVEMENT TAB] --
+
+-- Physics Section
+local PhysSection = MiscTab:section({name = "Physics"})
+local SpeedToggle = PhysSection:toggle({name = "Enable Speed (G)", callback = function(v) Settings.SpeedEnabled = v end})
+PhysSection:slider({name = "WalkSpeed", min = 16, max = 250, default = 16, callback = function(v) Settings.WalkSpeed = v end})
+PhysSection:toggle({name = "Noclip", callback = function(v) Settings.Noclip = v end})
+
+-- Spinbot / Dodge Section
+local DodgeSection = MiscTab:section({name = "Spinbot / Dodge"})
+DodgeSection:toggle({name = "Enable Spinbot", callback = function(v) Settings.DodgeEnabled = v end})
+DodgeSection:dropdown({
+    name = "Dodge Mode",
+    content = {"Spin", "Jitter"},
+    default = "Spin",
+    callback = function(v) Settings.DodgeMode = v end
+})
+DodgeSection:slider({name = "Spin Speed", min = 10, max = 500, default = 100, callback = function(v) Settings.DodgeSpeed = v end})
+
+-- Vehicle Section
+local VehicleSection = MiscTab:section({name = "Vehicle Flight"})
+local CarFlyToggle = VehicleSection:toggle({name = "Enable Car Fly (K)", callback = function(v) Settings.CarFlyEnabled = v end})
+VehicleSection:slider({name = "Flight Speed", min = 10, max = 500, default = 50, callback = function(v) Settings.CarFlySpeed = v end})
+
+-- Freecam Section
+local FreecamSection = MiscTab:section({name = "Freecam"})
+local FreecamToggle = FreecamSection:toggle({name = "Enable Freecam (V)", callback = function(v) Settings.Freecam = v end})
+FreecamSection:slider({name = "Freecam Speed", min = 1, max = 10, default = 1, callback = function(v) Settings.FreecamSpeed = v end})
+
+local function TeleportToCamera()
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = workspace.CurrentCamera.CFrame
+    end
+end
+FreecamSection:button({name = "Teleport to Camera (X)", callback = TeleportToCamera})
+
+-- // 4. Attack Loop Logic (R15 Stabilized)
+task.spawn(function()
+    while task.wait() do
+        if Settings.AttackEnabled and Settings.TargetName ~= "" then
+            local lp = game.Players.LocalPlayer
+            local char = lp.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            
+            -- Find Target
+            local targetPlr = nil
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Name:lower():find(Settings.TargetName:lower()) and p ~= lp then
+                    targetPlr = p
+                    break
+                end
+            end
+            
+            -- Execute
+            if targetPlr and targetPlr.Character then
+                local tChar = targetPlr.Character
+                local targetHRP = tChar:FindFirstChild("HumanoidRootPart")
+                local targetHum = tChar:FindFirstChild("Humanoid")
+                
+                if targetHum and targetHum.Health > 0 and hrp and targetHRP then
+                    -- 1. TP (Use Position to avoid spinning out due to R15 animations)
+                    local approachCFrame = CFrame.new(targetHRP.Position) * CFrame.new(0, 4, 2)
+                    -- Make sure we face the target
+                    hrp.CFrame = CFrame.lookAt(approachCFrame.Position, targetHRP.Position)
+                    
+                    -- 2. Look Down
+                    workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, targetHRP.Position)
+                    
+                    -- 3. Equip Slot 3 & Click
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+                    task.wait(0.01)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+                    mouse1click()
+                end
+            end
+        end
+    end
+end)
+
+-- // 5. Keybind Handling
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.V then Settings.Freecam = not Settings.Freecam; FreecamToggle:set(Settings.Freecam) end
+    if input.KeyCode == Enum.KeyCode.X then TeleportToCamera() end
+    if input.KeyCode == Enum.KeyCode.T then Settings.Triggerbot = not Settings.Triggerbot; TrigToggle:set(Settings.Triggerbot) end
+    if input.KeyCode == Enum.KeyCode.G then Settings.SpeedEnabled = not Settings.SpeedEnabled; SpeedToggle:set(Settings.SpeedEnabled) end
+    if input.KeyCode == Enum.KeyCode.K then Settings.CarFlyEnabled = not Settings.CarFlyEnabled; CarFlyToggle:set(Settings.CarFlyEnabled) end
+end)
+
+-- // 6. Helper Functions (R15 Compatible)
+local function isVisible(targetPart)
+    if not Settings.WallCheck then return true end
+    local camera = workspace.CurrentCamera
+    local char = game.Players.LocalPlayer.Character
+    if not char then return false end
+    
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = {char, camera}
+    
+    local origin = camera.CFrame.Position
+    local direction = (targetPart.Position - origin)
+    
+    local ray = workspace:Raycast(origin, direction, rayParams)
+    
+    -- R15 Fix: Ensure we account for Accessories/Handles
+    if ray and ray.Instance then
+        if ray.Instance:IsDescendantOf(targetPart.Parent) then
+            return true
+        end
+    end
+    return (not ray)
+end
+
+local function getBestTarget()
+    local target, bestVal = nil, math.huge
+    local mouse = game:GetService("UserInputService"):GetMouseLocation()
+    local cam = workspace.CurrentCamera
+    local lp = game.Players.LocalPlayer
+    
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= lp and p.Character then
+            local char = p.Character
+            local hum = char:FindFirstChild("Humanoid")
+            
+            -- R15 Part Fallback System
+            local part = char:FindFirstChild(Settings.TargetPart)
+            if not part then
+                -- Fallbacks if specific part is missing
+                part = char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+            end
+            
+            if part and hum and hum.Health > 0 then
+                if Settings.TeamCheck and p.Team == lp.Team then continue end
+                
+                local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+                local mouseDist = (Vector2.new(screenPos.X, screenPos.Y) - mouse).Magnitude
+                
+                if onScreen and mouseDist < Settings.FOV and isVisible(part) then
+                    if Settings.Priority == "Distance" then
+                        local dist3D = (part.Position - cam.CFrame.Position).Magnitude
+                        if dist3D < bestVal then bestVal = dist3D; target = part end
+                    elseif Settings.Priority == "Health" then
+                        local hp = hum.Health
+                        if hp < bestVal then bestVal = hp; target = part end
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- // 7. Main Rendering Loop
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 182, 193)
+FOVCircle.Thickness = 1
+FOVCircle.Visible = true
+
+local TriggerLocked = false
+local FreecamRotX, FreecamRotY, LastFreecamState = 0, 0, false
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    local cam = workspace.CurrentCamera
+    local UIS = game:GetService("UserInputService")
+    local lp = game.Players.LocalPlayer
+    local char = lp.Character
+
+    FOVCircle.Position = UIS:GetMouseLocation()
+    FOVCircle.Radius = Settings.FOV
+
+    -- Aimbot & Triggerbot (R15 Fixed)
+    if Settings.Triggerbot and not TriggerLocked then
+        local mouseTgt = lp:GetMouse().Target
+        if mouseTgt then
+            -- Recursively check up to find a character model
+            local model = mouseTgt:FindFirstAncestorOfClass("Model")
+            if model then
+                local hum = model:FindFirstChild("Humanoid")
+                local p = game.Players:GetPlayerFromCharacter(model)
+                if p and hum and (not Settings.TeamCheck or p.Team ~= lp.Team) and hum.Health > 0 then
+                    TriggerLocked = true
+                    task.wait(Settings.TriggerDelay)
+                    mouse1click()
+                    task.wait(0.1)
+                    TriggerLocked = false
+                end
+            end
+        end
+    end
+
+    if Settings.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local t = getBestTarget()
+        if t then 
+            cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, t.Position), Settings.Smoothness) 
+        end
+    end
+
+    -- Movement & Physics
+    if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+        -- Walkspeed
+        char.Humanoid.WalkSpeed = Settings.SpeedEnabled and Settings.WalkSpeed or 16
+        
+        -- Noclip
+        if Settings.Noclip then
+            for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+        end
+
+        -- Spinbot / Dodge Logic
+        if Settings.DodgeEnabled then
+            local hrp = char.HumanoidRootPart
+            if Settings.DodgeMode == "Spin" then
+                hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Settings.DodgeSpeed), 0)
+            elseif Settings.DodgeMode == "Jitter" then
+                local offset = (math.random(-1, 1) * Settings.DodgeSpeed) / 50
+                hrp.CFrame = hrp.CFrame * CFrame.new(offset, 0, 0)
+            end
+        end
+        
+        -- Car Flight Logic
+        local hum = char.Humanoid
+        if Settings.CarFlyEnabled and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then
+            local root = hum.SeatPart
+            local bv = root:FindFirstChild("MeowFlyV") or Instance.new("BodyVelocity", root)
+            local bg = root:FindFirstChild("MeowFlyG") or Instance.new("BodyGyro", root)
+            bv.Name = "MeowFlyV"; bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bg.Name = "MeowFlyG"; bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bg.CFrame = cam.CFrame
+            local moveDir = Vector3.new(0,0,0)
+            if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0,1,0) end
+            if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0,1,0) end
+            bv.Velocity = moveDir * Settings.CarFlySpeed
+        else
+            if hum.SeatPart and hum.SeatPart:FindFirstChild("MeowFlyV") then hum.SeatPart.MeowFlyV:Destroy() end
+            if hum.SeatPart and hum.SeatPart:FindFirstChild("MeowFlyG") then hum.SeatPart.MeowFlyG:Destroy() end
+        end
+    end
+
+    -- Freecam Engine
+    if Settings.Freecam then
+        if not LastFreecamState then
+            local rx, ry, _ = cam.CFrame:ToOrientation()
+            FreecamRotX, FreecamRotY, LastFreecamState = rx, ry, true
+        end
+        UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
+        cam.CameraType = Enum.CameraType.Scriptable
+        local delta = UIS:GetMouseDelta()
+        FreecamRotY = FreecamRotY - (delta.X * 0.005)
+        FreecamRotX = math.clamp(FreecamRotX - (delta.Y * 0.005), -1.5, 1.5)
+        local newRotCFrame = CFrame.fromOrientation(FreecamRotX, FreecamRotY, 0)
+        local moveDir = Vector3.new(0,0,0)
+        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + newRotCFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - newRotCFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + newRotCFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - newRotCFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0,1,0) end
+        cam.CFrame = CFrame.new(cam.CFrame.Position + (moveDir * Settings.FreecamSpeed)) * newRotCFrame
+    else
+        LastFreecamState = false
+        if cam.CameraType == Enum.CameraType.Scriptable then cam.CameraType = Enum.CameraType.Custom; UIS.MouseBehavior = Enum.MouseBehavior.Default end
+    end
+end)
+
+-- // 8. ESP System (R15 Compatible)
+local function CreateESP(plr)
+    local Box, Tracer, Name = Drawing.new("Square"), Drawing.new("Line"), Drawing.new("Text")
+    Box.Color = Color3.fromRGB(255, 182, 193); Box.Thickness = 1; Box.Filled = false
+    Tracer.Color = Color3.fromRGB(255, 182, 193)
+    Name.Color = Color3.fromRGB(255, 255, 255); Name.Outline = true; Name.Center = true; Name.Size = 16
+    
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if Settings.ESP_Enabled and plr.Character then
+            local char = plr.Character
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChild("Humanoid")
+            
+            if hrp and hum and hum.Health > 0 then
+                local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    Box.Visible, Tracer.Visible, Name.Visible = Settings.ESP_Boxes, Settings.ESP_Tracers, Settings.ESP_Names
+                    
+                    if Settings.ESP_Boxes then
+                        -- R15 Height adjustments
+                        local rootPos = hrp.Position
+                        local legOffset = Vector3.new(0,3,0) -- Rough estimation for R15
+                        local headOffset = Vector3.new(0,2,0)
+                        
+                        local top, topOn = workspace.CurrentCamera:WorldToViewportPoint(rootPos + headOffset)
+                        local bot, botOn = workspace.CurrentCamera:WorldToViewportPoint(rootPos - legOffset)
+                        
+                        -- Use simple size calc if precise fails
+                        local size = 2500 / pos.Z
+                        Box.Size = Vector2.new(size, size * 1.4)
+                        Box.Position = Vector2.new(pos.X - size / 2, pos.Y - (size * 1.4) / 2)
+                    end
+                    
+                    if Settings.ESP_Tracers then 
+                        Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+                        Tracer.To = Vector2.new(pos.X, pos.Y) 
+                    end
+                    
+                    if Settings.ESP_Names then 
+                        Name.Position = Vector2.new(pos.X, pos.Y - (Box.Size.Y / 2) - 15)
+                        Name.Text = plr.Name .. (Settings.ESP_Health and " [" .. math.floor(hum.Health) .. "]" or "") 
+                    end
+                else 
+                    Box.Visible = false; Tracer.Visible = false; Name.Visible = false 
+                end
+            else 
+                Box.Visible = false; Tracer.Visible = false; Name.Visible = false 
+            end
+        else 
+            Box.Visible = false; Tracer.Visible = false; Name.Visible = false 
+        end
+    end)
+end
+for _, p in pairs(game.Players:GetPlayers()) do if p ~= game.Players.LocalPlayer then CreateESP(p) end end
+game.Players.PlayerAdded:Connect(CreateESP)
