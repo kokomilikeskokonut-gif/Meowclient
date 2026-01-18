@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 -- // Configuration
 local Settings = {
     OrbitActive = false,
-    Radius = 6,
+    Radius = 3,
     Speed = 12,
     Height = 1,
     TargetPart = "HumanoidRootPart"
